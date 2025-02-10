@@ -6,4 +6,3 @@ Groq
 asyncio
 google.generativeai
 pandas
-os
