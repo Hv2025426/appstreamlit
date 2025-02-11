@@ -1,5 +1,3 @@
-# Modelo com Acionamento Assíncrono de Análises - várias APIs de IA simultaneas e relatório de uso de tokens
-
 import os
 import asyncio
 import time
@@ -12,8 +10,8 @@ from groq import Groq
 import google.generativeai as genai
 import streamlit as st
 
-# Configuração da página DEVE SER A PRIMEIRA CHAMADA
-st.set_page_config(page_title="Analisador de Texto", layout="wide")
+# Configuração da página
+st.set_page_config(page_title="Chat Multi-IA", layout="wide")
 
 # Carregar variáveis de ambiente
 load_dotenv()
@@ -48,26 +46,25 @@ def init_clients():
     }
 
 # Funções de análise para cada modelo
-async def analyze_with_gpt(prompt):
+async def analyze_with_gpt(messages):
     start_time = time.time()
     try:
+        system_message = [{"role": "system", "content": "Você é um assistente inteligente"}]
+        full_messages = system_message + messages
+        
         response = await asyncio.to_thread(
             st.session_state.clients['openai'].chat.completions.create,
             model="gpt-4o-mini",
-            temperature=0.5,
-            messages=[
-                {"role": "system", "content": "Você é um analista de textos especializado em língua portuguesa"},
-                {"role": "user", "content": prompt}
-            ]
+            messages=full_messages,
+            temperature=0.5
         )
-        st.session_state.gpt_result = response.choices[0].message.content
-        st.session_state.gpt_input = response.usage.prompt_tokens
-        st.session_state.gpt_output = response.usage.completion_tokens
-        st.session_state.gpt_time = time.time() - start_time
+        ai_response = response.choices[0].message.content
+        return ai_response, response.usage.prompt_tokens, response.usage.completion_tokens, time.time() - start_time
     except Exception as e:
         st.error(f"Erro no GPT: {str(e)}")
+        return None, 0, 0, 0.0
 
-async def analyze_with_claude(prompt):
+async def analyze_with_claude(messages):
     start_time = time.time()
     try:
         response = await asyncio.to_thread(
@@ -75,276 +72,373 @@ async def analyze_with_claude(prompt):
             model="claude-3-5-sonnet-20241022",
             max_tokens=2000,
             temperature=0.5,
-            messages=[{"role": "user", "content": prompt}]
+            messages=messages,
+            system="Você é um assistente inteligente"
         )
-        st.session_state.claude_result = response.content[0].text
-        st.session_state.claude_input = response.usage.input_tokens
-        st.session_state.claude_output = response.usage.output_tokens
-        st.session_state.claude_time = time.time() - start_time
+        ai_response = response.content[0].text
+        return ai_response, response.usage.input_tokens, response.usage.output_tokens, time.time() - start_time
     except Exception as e:
         st.error(f"Erro no Claude: {str(e)}")
+        return None, 0, 0, 0.0
 
-async def analyze_maritalk(prompt):
+async def analyze_maritalk(messages):
     start_time = time.time()
     try:
         response = await asyncio.to_thread(
             st.session_state.clients['maritalk'].chat.completions.create,
             model="sabia-3",
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
             max_tokens=8000,
             temperature=0.7
         )
-        st.session_state.maritalk_result = response.choices[0].message.content
+        ai_response = response.choices[0].message.content
         encoding = tiktoken.get_encoding("cl100k_base")
-        st.session_state.maritalk_input = len(encoding.encode(prompt))
-        st.session_state.maritalk_output = len(encoding.encode(response.choices[0].message.content))
-        st.session_state.maritalk_time = time.time() - start_time
+        input_tokens = sum(len(encoding.encode(m["content"])) for m in messages)
+        output_tokens = len(encoding.encode(ai_response))
+        return ai_response, input_tokens, output_tokens, time.time() - start_time
     except Exception as e:
         st.error(f"Erro no Maritalk: {str(e)}")
+        return None, 0, 0, 0.0
 
-async def analyze_llama405b(prompt):
+async def analyze_llama405b(messages):
     start_time = time.time()
     try:
         response = await asyncio.to_thread(
             st.session_state.clients['nebius_405b'].chat.completions.create,
             model="meta-llama/Meta-Llama-3.1-405B-Instruct",
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
             max_tokens=5000,
             temperature=0.6
         )
-        st.session_state.llama405b_result = response.choices[0].message.content
+        ai_response = response.choices[0].message.content
         encoding = tiktoken.get_encoding("cl100k_base")
-        st.session_state.llama405b_input = len(encoding.encode(prompt))
-        st.session_state.llama405b_output = len(encoding.encode(response.choices[0].message.content))
-        st.session_state.llama405b_time = time.time() - start_time
+        input_tokens = sum(len(encoding.encode(m["content"])) for m in messages)
+        output_tokens = len(encoding.encode(ai_response))
+        return ai_response, input_tokens, output_tokens, time.time() - start_time
     except Exception as e:
         st.error(f"Erro no Llama 405B: {str(e)}")
+        return None, 0, 0, 0.0
 
-async def analyze_llama70b_nebius(prompt):
+async def analyze_llama70b_nebius(messages):
     start_time = time.time()
     try:
         response = await asyncio.to_thread(
             st.session_state.clients['nebius_70b'].chat.completions.create,
             model="meta-llama/Llama-3.3-70B-Instruct",
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
             max_tokens=5000,
             temperature=0.6
         )
-        st.session_state.llama70b_nebius_result = response.choices[0].message.content
+        ai_response = response.choices[0].message.content
         encoding = tiktoken.get_encoding("cl100k_base")
-        st.session_state.llama70b_nebius_input = len(encoding.encode(prompt))
-        st.session_state.llama70b_nebius_output = len(encoding.encode(response.choices[0].message.content))
-        st.session_state.llama70b_nebius_time = time.time() - start_time
+        input_tokens = sum(len(encoding.encode(m["content"])) for m in messages)
+        output_tokens = len(encoding.encode(ai_response))
+        return ai_response, input_tokens, output_tokens, time.time() - start_time
     except Exception as e:
         st.error(f"Erro no Llama 70B (Nebius): {str(e)}")
+        return None, 0, 0, 0.0
 
-async def analyze_llama70b_groq(prompt):
+async def analyze_llama70b_groq(messages):
     start_time = time.time()
     try:
         response = await asyncio.to_thread(
             st.session_state.clients['groq'].chat.completions.create,
             model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": "Você é um analista de textos especializado em língua portuguesa"},
-                {"role": "user", "content": prompt}
-            ]
+            messages=messages,
+            temperature=0.6,
+            max_tokens=5000
         )
-        st.session_state.llama70b_groq_result = response.choices[0].message.content
+        ai_response = response.choices[0].message.content
         encoding = tiktoken.get_encoding("cl100k_base")
-        st.session_state.llama70b_groq_input = len(encoding.encode(prompt))
-        st.session_state.llama70b_groq_output = len(encoding.encode(response.choices[0].message.content))
-        st.session_state.llama70b_groq_time = time.time() - start_time
+        input_tokens = sum(len(encoding.encode(m["content"])) for m in messages)
+        output_tokens = len(encoding.encode(ai_response))
+        return ai_response, input_tokens, output_tokens, time.time() - start_time
     except Exception as e:
         st.error(f"Erro no Llama 70B (Groq): {str(e)}")
+        return None, 0, 0, 0.0
 
-async def analyze_deepseek_chat(prompt):
+async def analyze_deepseek_chat(messages):
     start_time = time.time()
     try:
         response = await asyncio.to_thread(
             st.session_state.clients['deepseek'].chat.completions.create,
             model="deepseek-chat",
-            messages=[
-                {"role": "system", "content": "Você é um analista de textos especializado em língua portuguesa"},
-                {"role": "user", "content": prompt}
-            ],
+            messages=messages,
             max_tokens=8192,
             temperature=0.7
         )
-        st.session_state.deepseek_chat_result = response.choices[0].message.content
+        ai_response = response.choices[0].message.content
         encoding = tiktoken.get_encoding("cl100k_base")
-        st.session_state.deepseek_chat_input = len(encoding.encode(prompt))
-        st.session_state.deepseek_chat_output = len(encoding.encode(response.choices[0].message.content))
-        st.session_state.deepseek_chat_time = time.time() - start_time
+        input_tokens = sum(len(encoding.encode(m["content"])) for m in messages)
+        output_tokens = len(encoding.encode(ai_response))
+        return ai_response, input_tokens, output_tokens, time.time() - start_time
     except Exception as e:
         st.error(f"Erro no Deepseek Chat: {str(e)}")
+        return None, 0, 0, 0.0
 
-async def analyze_deepseek_reasoner(prompt):
+async def analyze_deepseek_reasoner(messages):
     start_time = time.time()
     try:
+        # Adicionar mensagem de sistema e garantir alternância de roles
+        formatted_messages = []
+        system_added = False
+        
+        for msg in messages:
+            if msg["role"] == "system":
+                formatted_messages.append(msg)
+                system_added = True
+            else:
+                # Garantir alternância entre user e assistant
+                if len(formatted_messages) > 0 and formatted_messages[-1]["role"] == msg["role"]:
+                    formatted_messages.append({"role": "assistant" if msg["role"] == "user" else "user", "content": "[Continuação]"})
+                formatted_messages.append(msg)
+        
+        if not system_added:
+            formatted_messages.insert(0, {"role": "system", "content": "Você é um assistente inteligente"})
+
         response = await asyncio.to_thread(
             st.session_state.clients['deepseek'].chat.completions.create,
             model="deepseek-reasoner",
-            messages=[
-                {"role": "system", "content": "Você é um analista de textos especializado em língua portuguesa"},
-                {"role": "user", "content": prompt}
-            ],
+            messages=formatted_messages,
             max_tokens=8192,
             temperature=0.7
         )
-        st.session_state.deepseek_reasoner_result = response.choices[0].message.content
+        ai_response = response.choices[0].message.content
         encoding = tiktoken.get_encoding("cl100k_base")
-        st.session_state.deepseek_reasoner_input = len(encoding.encode(prompt))
-        st.session_state.deepseek_reasoner_output = len(encoding.encode(response.choices[0].message.content))
-        st.session_state.deepseek_reasoner_time = time.time() - start_time
+        input_tokens = sum(len(encoding.encode(m["content"])) for m in formatted_messages)
+        output_tokens = len(encoding.encode(ai_response))
+        return ai_response, input_tokens, output_tokens, time.time() - start_time
     except Exception as e:
         st.error(f"Erro no Deepseek Reasoner: {str(e)}")
+        return None, 0, 0, 0.0
 
-async def analyze_with_gemini(prompt):
+async def analyze_with_gemini(messages):
     start_time = time.time()
     try:
         model = st.session_state.clients['gemini'].GenerativeModel("gemini-1.5-flash")
+        user_messages = [m["content"] for m in messages if m["role"] == "user"]
+        last_user_message = user_messages[-1] if user_messages else ""
+        
         response = await asyncio.to_thread(
             model.generate_content,
-            prompt
+            last_user_message
         )
-        st.session_state.gemini_result = response.text
+        ai_response = response.text
         encoding = tiktoken.get_encoding("cl100k_base")
-        st.session_state.gemini_input = len(encoding.encode(prompt))
-        st.session_state.gemini_output = len(encoding.encode(response.text))
-        st.session_state.gemini_time = time.time() - start_time
+        input_tokens = sum(len(encoding.encode(m["content"])) for m in messages)
+        output_tokens = len(encoding.encode(ai_response))
+        return ai_response, input_tokens, output_tokens, time.time() - start_time
     except Exception as e:
         st.error(f"Erro no Gemini: {str(e)}")
+        return None, 0, 0, 0.0
 
-# Funções auxiliares
-def create_prompt(text):
-    return f"""
-    Analise o seguinte texto considerando estes elementos de coesão:
-    - Retomada pronominal
-    - Substituição lexical
-    - Emprego de articuladores
-    - Progressão textual
+# Interface de chat corrigida
+def chat_interface(model_key, model_name, analysis_func):
+    if f"{model_key}_messages" not in st.session_state:
+        st.session_state[f"{model_key}_messages"] = []
+    if f"{model_key}_ratings" not in st.session_state:
+        st.session_state[f"{model_key}_ratings"] = []
+    
+    with st.expander(f"Histórico de Conversa ({model_name})", expanded=True):
+        for msg in st.session_state[f"{model_key}_messages"]:
+            role = "Você" if msg["role"] == "user" else model_name
+            st.markdown(f"**{role}:** {msg['content']}")
+    
+    # Contador para gerenciar o estado do input
+    input_counter = st.session_state.get(f"{model_key}_input_counter", 0)
+    user_input_key = f"{model_key}_input_{input_counter}"
+    
+    # Caixa de texto com chave dinâmica
+    user_input = st.text_area(
+        "Digite sua mensagem:", 
+        key=user_input_key,
+        height=140,
+        placeholder=f"Escreva sua mensagem para {model_name}..."
+    )
+    
+    # Linha de botões e avaliação
+    col1, col2, col3, col4 = st.columns([1.5, 2, 2, 2])
+    
+    with col1:
+        if st.button("Enviar", key=f"send_{model_key}"):
+            if user_input.strip():
+                st.session_state[f"{model_key}_messages"].append({"role": "user", "content": user_input.strip()})
+                
+                # Incrementa o contador para resetar o input
+                st.session_state[f"{model_key}_input_counter"] = input_counter + 1
+                
+                async def process_message():
+                    with st.spinner(f"{model_name} está pensando..."):
+                        response, input_tokens, output_tokens, elapsed_time = await analysis_func(
+                            st.session_state[f"{model_key}_messages"]
+                        )
+                    return response, input_tokens, output_tokens, elapsed_time
+                
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    response, input_tokens, output_tokens, elapsed_time = loop.run_until_complete(process_message())
+                finally:
+                    loop.close()
+                
+                if response:
+                    st.session_state[f"{model_key}_messages"].append({"role": "assistant", "content": response})
+                    st.session_state[f"{model_key}_input_tokens"] = st.session_state.get(f"{model_key}_input_tokens", 0) + input_tokens
+                    st.session_state[f"{model_key}_output_tokens"] = st.session_state.get(f"{model_key}_output_tokens", 0) + output_tokens
+                    st.session_state[f"{model_key}_time"] = st.session_state.get(f"{model_key}_time", 0.0) + elapsed_time
+                    st.rerun()
+    
+    with col2:
+        # Usar contador para gerenciar o estado do rating
+        rating_counter = st.session_state.get(f"{model_key}_rating_counter", 0)
+        rating_key = f"rating_{model_key}_{rating_counter}"
+        
+        rating = st.number_input(
+            "Avalie o modelo (1-5)",
+            min_value=1,
+            max_value=5,
+            step=1,
+            key=rating_key,
+            value=1  # Valor padrão sempre 1
+        )
+    
+    with col3:
+        if st.button("Enviar avaliação", key=f"rate_{model_key}"):
+            if 1 <= rating <= 5:
+                ratings = st.session_state[f"{model_key}_ratings"]
+                ratings.append(rating)
+                if len(ratings) > 10:
+                    ratings.pop(0)
+                st.session_state[f"{model_key}_ratings"] = ratings
+                # Incrementar contador para resetar o input
+                st.session_state[f"{model_key}_rating_counter"] = rating_counter + 1
+                st.rerun()
+    
+    with col4:
+        if st.button("Iniciar uma nova conversa", key=f"clear_{model_key}"):
+            keys_to_reset = [
+                f"{model_key}_messages",
+                f"{model_key}_input_tokens",
+                f"{model_key}_output_tokens",
+                f"{model_key}_time",
+                f"{model_key}_ratings"
+            ]
+            for key in keys_to_reset:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.rerun()
 
-    Texto para análise:
-    {text}
-    """
-
+# Relatório de estatísticas
 def token_report():
     models = [
-        ('GPT-4o-Mini', 'gpt_input', 'gpt_output', 'gpt_time'),
-        ('Claude-3.5-Sonnet', 'claude_input', 'claude_output', 'claude_time'),
-        ('Maritalk Sabiá-3', 'maritalk_input', 'maritalk_output', 'maritalk_time'),
-        ('Llama 405B', 'llama405b_input', 'llama405b_output', 'llama405b_time'),
-        ('Llama 70B (Nebius)', 'llama70b_nebius_input', 'llama70b_nebius_output', 'llama70b_nebius_time'),
-        ('Llama 70B (Groq)', 'llama70b_groq_input', 'llama70b_groq_output', 'llama70b_groq_time'),
-        ('Deepseek Chat', 'deepseek_chat_input', 'deepseek_chat_output', 'deepseek_chat_time'),
-        ('Deepseek Reasoner', 'deepseek_reasoner_input', 'deepseek_reasoner_output', 'deepseek_reasoner_time'),
-        ('Gemini 1.5 Flash', 'gemini_input', 'gemini_output', 'gemini_time')
+        ('gpt', 'GPT-4o-Mini'),
+        ('claude', 'Claude-3.5-Sonnet'),
+        ('maritalk', 'Maritalk Sabiá-3'),
+        ('llama405b', 'Llama 405B'),
+        ('llama70b_nebius', 'Llama 70B (Nebius)'),
+        ('llama70b_groq', 'Llama 70B (Groq)'),
+        ('deepseek_chat', 'Deepseek Chat'),
+        ('deepseek_reasoner', 'Deepseek Reasoner'),
+        ('gemini', 'Gemini 1.5 Flash')
     ]
     
-    data = {
-        'Modelo': [],
-        'Input Tokens': [],
-        'Output Tokens': [],
-        'Total Tokens': [],
-        'Tempo de Resposta': []
-    }
-    
-    for model in models:
-        input_tokens = st.session_state.get(model[1], 0)
-        output_tokens = st.session_state.get(model[2], 0)
-        response_time = st.session_state.get(model[3], 0.0)
+    data = []
+    for model_key, model_name in models:
+        input_tokens = st.session_state.get(f"{model_key}_input_tokens", 0)
+        output_tokens = st.session_state.get(f"{model_key}_output_tokens", 0)
+        total_time = st.session_state.get(f"{model_key}_time", 0.0)
         
-        data['Modelo'].append(model[0])
-        data['Input Tokens'].append(input_tokens)
-        data['Output Tokens'].append(output_tokens)
-        data['Total Tokens'].append(input_tokens + output_tokens)
-        data['Tempo de Resposta'].append(response_time)
+        ratings = st.session_state.get(f"{model_key}_ratings", [])[-10:]
+        padded_ratings = ratings + [None] * (10 - len(ratings))
+        avg_ratings = [r for r in ratings if r is not None]
+        avg = round(sum(avg_ratings)/len(avg_ratings), 2) if avg_ratings else 0.0
+        
+        model_data = {
+            'Modelo': model_name,
+            'Input Tokens': input_tokens,
+            'Output Tokens': output_tokens,
+            'Total Tokens': input_tokens + output_tokens,
+            'Tempo Total (s)': round(total_time, 2),
+            'Média': avg
+        }
+        
+        for i in range(10):
+            model_data[f'A{i+1}'] = padded_ratings[i] if i < len(ratings) else None
+        
+        data.append(model_data)
     
     return pd.DataFrame(data)
 
 # Interface principal
 def main_interface():
-    tabs = [
-        "Entrada", "GPT-4o-Mini", "Claude-3.5-Sonnet", 
-        "Maritalk Sabiá-3", "Llama 405B", "Llama 70B (Nebius)",
-        "Llama 70B (Groq)", "Deepseek Chat", "Deepseek Reasoner",
-        "Gemini 1.5 Flash", "Estatísticas"
-    ]
-    tab_objects = st.tabs(tabs)
+    st.title("Chat Multi-IA")
     
-    with tab_objects[0]:
-        user_input = st.text_area("Cole seu texto aqui:", height=300, key="text_input")
-        if st.button("Analisar Texto"):
-            if user_input.strip():
-                st.session_state['analise_texto'] = create_prompt(user_input)
-                run_analysis()
-            else:
-                st.warning("Por favor, insira um texto para análise.")
+    tabs = st.tabs([
+        "GPT-4o-Mini",
+        "Claude-3.5-Sonnet",
+        "Maritalk Sabiá-3",
+        "Llama 405B",
+        "Llama 70B (Nebius)",
+        "Llama 70B (Groq)",
+        "Deepseek Chat",
+        "Deepseek Reasoner",
+        "Gemini 1.5 Flash",
+        "Estatísticas"
+    ])
     
-    if 'analise_texto' in st.session_state:
-        def show_result(tab_index, model_key):
-            with tab_objects[tab_index]:
-                if model_key in st.session_state:
-                    st.markdown(st.session_state[model_key])
-                else:
-                    st.info(f"Aguardando análise {model_key.split('_')[0]}...")
-        
-        show_result(1, 'gpt_result')
-        show_result(2, 'claude_result')
-        show_result(3, 'maritalk_result')
-        show_result(4, 'llama405b_result')
-        show_result(5, 'llama70b_nebius_result')
-        show_result(6, 'llama70b_groq_result')
-        show_result(7, 'deepseek_chat_result')
-        show_result(8, 'deepseek_reasoner_result')
-        show_result(9, 'gemini_result')
-        
-        with tab_objects[10]:
-            st.subheader("Estatísticas de Uso")
-            if any(key in st.session_state for key in ['gpt_input', 'claude_input']):
-                df = token_report()
-                st.dataframe(
-                    df.style.format({
-                        'Tempo de Resposta': '{:.1f}s'
-                    }),
-                    use_container_width=True,
-                    column_config={
-                        "Modelo": "Modelo",
-                        "Input Tokens": st.column_config.NumberColumn("Tokens de Entrada"),
-                        "Output Tokens": st.column_config.NumberColumn("Tokens de Saída"),
-                        "Total Tokens": st.column_config.NumberColumn("Total de Tokens"),
-                        "Tempo de Resposta": st.column_config.NumberColumn("Tempo de Resposta (s)")
-                    }
-                )
-                st.caption("Detalhamento de desempenho por modelo")
-            else:
-                st.info("Execute uma análise para ver as estatísticas de uso")
-
-# Função de execução
-def run_analysis():
-    keys_to_reset = [k for k in st.session_state.keys() if k.endswith(('result', 'input', 'output', 'time'))]
-    for key in keys_to_reset:
-        if key in st.session_state:
-            del st.session_state[key]
+    with tabs[0]:
+        chat_interface('gpt', 'GPT-4o-Mini', analyze_with_gpt)
     
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        with st.spinner("Processando análises simultâneas..."):
-            loop.run_until_complete(asyncio.gather(
-                analyze_with_gpt(st.session_state.analise_texto),
-                analyze_with_claude(st.session_state.analise_texto),
-                analyze_maritalk(st.session_state.analise_texto),
-                analyze_llama405b(st.session_state.analise_texto),
-                analyze_llama70b_nebius(st.session_state.analise_texto),
-                analyze_llama70b_groq(st.session_state.analise_texto),
-                analyze_deepseek_chat(st.session_state.analise_texto),
-                analyze_deepseek_reasoner(st.session_state.analise_texto),
-                analyze_with_gemini(st.session_state.analise_texto)
-            ))
-    finally:
-        loop.close()
-    st.rerun()
+    with tabs[1]:
+        chat_interface('claude', 'Claude-3.5-Sonnet', analyze_with_claude)
+    
+    with tabs[2]:
+        chat_interface('maritalk', 'Maritalk Sabiá-3', analyze_maritalk)
+    
+    with tabs[3]:
+        chat_interface('llama405b', 'Llama 405B', analyze_llama405b)
+    
+    with tabs[4]:
+        chat_interface('llama70b_nebius', 'Llama 70B (Nebius)', analyze_llama70b_nebius)
+    
+    with tabs[5]:
+        chat_interface('llama70b_groq', 'Llama 70B (Groq)', analyze_llama70b_groq)
+    
+    with tabs[6]:
+        chat_interface('deepseek_chat', 'Deepseek Chat', analyze_deepseek_chat)
+    
+    with tabs[7]:
+        chat_interface('deepseek_reasoner', 'Deepseek Reasoner', analyze_deepseek_reasoner)
+    
+    with tabs[8]:
+        chat_interface('gemini', 'Gemini 1.5 Flash', analyze_with_gemini)
+    
+    with tabs[9]:
+        st.subheader("Estatísticas de Uso")
+        df = token_report()
+        if not df.empty:
+            columns_order = ['Modelo', 'Input Tokens', 'Output Tokens', 'Total Tokens', 'Tempo Total (s)'] + \
+                           [f'A{i+1}' for i in range(10)] + ['Média']
+            
+            st.dataframe(
+                df[columns_order].style.format({'Tempo Total (s)': '{:.2f}', 'Média': '{:.2f}'}),
+                use_container_width=True,
+                height=(len(df) + 1) * 35 + 3,
+                column_config={
+                    "Modelo": st.column_config.TextColumn("Modelo", width="medium"),
+                    **{f'A{i+1}': st.column_config.NumberColumn(f"Avaliação {i+1}", width="small") for i in range(10)},
+                    "Média": st.column_config.NumberColumn("Média", format="%.2f")
+                }
+            )
+            
+            st.download_button(
+                label="Baixar Relatório Completo",
+                data=df.to_csv(index=False, sep=';').encode('utf-8'),
+                file_name='relatorio_ia.csv',
+                mime='text/csv'
+            )
+        else:
+            st.info("Nenhum dado disponível ainda. Inicie conversas para ver estatísticas.")
 
 # Execução principal
 if __name__ == "__main__":
