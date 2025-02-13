@@ -48,6 +48,7 @@ def init_clients():
 # Tabela de custo por token (em dólares) - (custo de input, custo de output)
 COSTS = {
     'gpt': (2.50, 10.00),
+    'gpt4': (3.00, 12.00),
     'claude': (3.00, 15.00),
     'maritalk': (0.83, 1.67),
     'llama405b': (1.00, 3.00),
@@ -59,6 +60,7 @@ COSTS = {
 }
 
 # Funções de análise para cada modelo
+
 async def analyze_with_gpt(messages):
     start_time = time.time()
     try:
@@ -74,7 +76,24 @@ async def analyze_with_gpt(messages):
         ai_response = response.choices[0].message.content
         return ai_response, response.usage.prompt_tokens, response.usage.completion_tokens, time.time() - start_time
     except Exception as e:
-        st.error(f"Erro no GPT: {str(e)}")
+        st.error(f"Erro no GPT-4o-Mini: {str(e)}")
+        return None, 0, 0, 0.0
+
+async def analyze_with_gpt4(messages):
+    start_time = time.time()
+    try:
+        system_message = [{"role": "system", "content": "Você é um assistente inteligente"}]
+        full_messages = system_message + messages
+        response = await asyncio.to_thread(
+            st.session_state.clients['openai'].chat.completions.create,
+            model="gpt-4",
+            messages=full_messages,
+            temperature=0.5
+        )
+        ai_response = response.choices[0].message.content
+        return ai_response, response.usage.prompt_tokens, response.usage.completion_tokens, time.time() - start_time
+    except Exception as e:
+        st.error(f"Erro no GPT-4: {str(e)}")
         return None, 0, 0, 0.0
 
 async def analyze_with_claude(messages):
@@ -245,6 +264,21 @@ async def analyze_with_gemini(messages):
         st.error(f"Erro no Gemini: {str(e)}")
         return None, 0, 0, 0.0
 
+# Função auxiliar para exibir mensagens com formatação
+def display_message(role, content, model_name=None):
+    if role == "user":
+        st.markdown(
+            f"<div style='background-color:#e6f7ff; padding:10px; margin-bottom:10px; border-radius:5px;'>"
+            f"<strong>Você:</strong> {content}</div>",
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            f"<div style='background-color:#f0f0f0; padding:10px; margin-bottom:10px; border-radius:5px;'>"
+            f"<strong>{model_name}:</strong> {content}</div>",
+            unsafe_allow_html=True
+        )
+
 # Interface de chat para cada modelo
 def chat_interface(model_key, model_name, analysis_func):
     if f"{model_key}_messages" not in st.session_state:
@@ -254,8 +288,10 @@ def chat_interface(model_key, model_name, analysis_func):
     
     with st.expander(f"Histórico de Conversa ({model_name})", expanded=True):
         for msg in st.session_state[f"{model_key}_messages"]:
-            role = "Você" if msg["role"] == "user" else model_name
-            st.markdown(f"**{role}:** {msg['content']}")
+            if msg["role"] == "user":
+                display_message("user", msg["content"])
+            else:
+                display_message("assistant", msg["content"], model_name)
     
     # Contador para gerenciar o estado do input
     input_counter = st.session_state.get(f"{model_key}_input_counter", 0)
@@ -269,8 +305,8 @@ def chat_interface(model_key, model_name, analysis_func):
         placeholder=f"Escreva sua mensagem para {model_name}..."
     )
     
-    # Linha de botões e avaliação
-    col1, col2, col3, col4 = st.columns([1.5, 2, 2, 2])
+    # Linha de botões e avaliação (agora com 5 colunas)
+    col1, col2, col3, col4, col5 = st.columns([1.5, 2, 2, 2, 2])
     
     with col1:
         if st.button("Enviar Mensagem", key=f"send_{model_key}"):
@@ -340,13 +376,113 @@ def chat_interface(model_key, model_name, analysis_func):
                 if key in st.session_state:
                     del st.session_state[key]
             st.rerun()
+    
+    with col5:
+        if st.button("Enviar para montagem do Recurso", key=f"send_for_resource_{model_key}"):
+            messages = st.session_state.get(f"{model_key}_messages", [])
+            last_assistant = None
+            for msg in reversed(messages):
+                if msg["role"] == "assistant":
+                    last_assistant = msg["content"]
+                    break
+            if last_assistant:
+                st.session_state["texto_recurso"] = last_assistant
+                st.success("Texto enviado para montagem do recurso!")
+            else:
+                st.warning("Nenhuma resposta do modelo disponível para enviar.")
+
+# Interface de chat global para todos os modelos
+def global_chat_interface():
+    if "global_messages" not in st.session_state:
+        st.session_state.global_messages = []
+    
+    with st.expander("Histórico de Conversa (Todos os modelos)", expanded=True):
+        for msg in st.session_state.global_messages:
+            st.markdown(
+                f"<div style='background-color:#e6f7ff; padding:10px; margin-bottom:10px; border-radius:5px;'>"
+                f"<strong>Você:</strong> {msg['content']}</div>",
+                unsafe_allow_html=True
+            )
+    
+    input_counter = st.session_state.get("global_input_counter", 0)
+    user_input_key = f"global_input_{input_counter}"
+    user_input = st.text_area(
+        "Digite sua mensagem para todos os modelos:",
+        key=user_input_key,
+        height=180,
+        placeholder="Escreva sua mensagem para enviar a todos os modelos..."
+    )
+    
+    col1, col4 = st.columns([1.5, 2])
+    
+    with col1:
+        if st.button("Enviar Mensagem para todos os modelos", key="send_all"):
+            if user_input.strip():
+                # Adiciona mensagem ao histórico global
+                st.session_state.global_messages.append({"role": "user", "content": user_input.strip()})
+                
+                # Lista de modelos e suas funções de análise
+                models_to_send = [
+                    ('gpt', analyze_with_gpt),
+                    ('gpt4', analyze_with_gpt4),
+                    ('claude', analyze_with_claude),
+                    ('maritalk', analyze_maritalk),
+                    ('llama405b', analyze_llama405b),
+                    ('llama70b_nebius', analyze_llama70b_nebius),
+                    ('llama70b_groq', analyze_llama70b_groq),
+                    ('deepseek_chat', analyze_deepseek_chat),
+                    ('deepseek_reasoner', analyze_deepseek_reasoner),
+                    ('gemini', analyze_with_gemini)
+                ]
+                
+                # Adiciona mensagem a todos os modelos
+                for model_key, _ in models_to_send:
+                    messages_key = f"{model_key}_messages"
+                    if messages_key not in st.session_state:
+                        st.session_state[messages_key] = []
+                    st.session_state[messages_key].append({"role": "user", "content": user_input.strip()})
+                
+                # Atualiza contador de input
+                st.session_state.global_input_counter = input_counter + 1
+                
+                # Processa todos os modelos assincronamente
+                async def process_all_models():
+                    tasks = []
+                    for model_key, analysis_func in models_to_send:
+                        messages = st.session_state[f"{model_key}_messages"]
+                        tasks.append(analysis_func(messages))
+                    return await asyncio.gather(*tasks)
+                
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    with st.spinner("Processando todos os modelos..."):
+                        responses = loop.run_until_complete(process_all_models())
+                finally:
+                    loop.close()
+                
+                # Atualiza respostas e estatísticas
+                for (model_key, _), (response, input_tokens, output_tokens, elapsed_time) in zip(models_to_send, responses):
+                    if response:
+                        st.session_state[f"{model_key}_messages"].append({"role": "assistant", "content": response})
+                        st.session_state[f"{model_key}_input_tokens"] = st.session_state.get(f"{model_key}_input_tokens", 0) + input_tokens
+                        st.session_state[f"{model_key}_output_tokens"] = st.session_state.get(f"{model_key}_output_tokens", 0) + output_tokens
+                        st.session_state[f"{model_key}_time"] = st.session_state.get(f"{model_key}_time", 0.0) + elapsed_time
+                
+                st.rerun()
+    
+    with col4:
+        if st.button("Iniciar uma nova conversa", key="clear_global"):
+            if 'global_messages' in st.session_state:
+                del st.session_state.global_messages
+            st.session_state.global_input_counter = 0
+            st.rerun()
 
 # Relatório de estatísticas
-
-# Função token_report incluindo os cálculos de custo
 def token_report():
     models = [
         ('gpt', 'GPT-4o-Mini'),
+        ('gpt4', 'GPT-4'),
         ('claude', 'Claude-3.5-Sonnet'),
         ('maritalk', 'Maritalk Sabiá-3'),
         ('llama405b', 'Llama 405B'),
@@ -398,7 +534,9 @@ def main_interface():
     st.title("Ambiente de Validação dos modelos de IA")
     
     tabs = st.tabs([
+        "Todos os modelos",
         "GPT-4o-Mini",
+        "GPT-4",
         "Claude-3.5-Sonnet",
         "Maritalk Sabiá-3",
         "Llama 405B",
@@ -407,44 +545,50 @@ def main_interface():
         "Deepseek Chat",
         "Deepseek Reasoner",
         "Gemini 1.5 Flash",
-        "Estatísticas"
+        "Estatísticas",
+        "Texto do Recurso"
     ])
     
     with tabs[0]:
-        chat_interface('gpt', 'GPT-4o-Mini', analyze_with_gpt)
+        global_chat_interface()
     
     with tabs[1]:
-        chat_interface('claude', 'Claude-3.5-Sonnet', analyze_with_claude)
+        chat_interface('gpt', 'GPT-4o-Mini', analyze_with_gpt)
     
     with tabs[2]:
-        chat_interface('maritalk', 'Maritalk Sabiá-3', analyze_maritalk)
+        chat_interface('gpt4', 'GPT-4', analyze_with_gpt4)
     
     with tabs[3]:
-        chat_interface('llama405b', 'Llama 405B', analyze_llama405b)
+        chat_interface('claude', 'Claude-3.5-Sonnet', analyze_with_claude)
     
     with tabs[4]:
-        chat_interface('llama70b_nebius', 'Llama 70B (Nebius)', analyze_llama70b_nebius)
+        chat_interface('maritalk', 'Maritalk Sabiá-3', analyze_maritalk)
     
     with tabs[5]:
-        chat_interface('llama70b_groq', 'Llama 70B (Groq)', analyze_llama70b_groq)
+        chat_interface('llama405b', 'Llama 405B', analyze_llama405b)
     
     with tabs[6]:
-        chat_interface('deepseek_chat', 'Deepseek Chat', analyze_deepseek_chat)
+        chat_interface('llama70b_nebius', 'Llama 70B (Nebius)', analyze_llama70b_nebius)
     
     with tabs[7]:
-        chat_interface('deepseek_reasoner', 'Deepseek Reasoner', analyze_deepseek_reasoner)
+        chat_interface('llama70b_groq', 'Llama 70B (Groq)', analyze_llama70b_groq)
     
     with tabs[8]:
-        chat_interface('gemini', 'Gemini 1.5 Flash', analyze_with_gemini)
+        chat_interface('deepseek_chat', 'Deepseek Chat', analyze_deepseek_chat)
     
     with tabs[9]:
+        chat_interface('deepseek_reasoner', 'Deepseek Reasoner', analyze_deepseek_reasoner)
+    
+    with tabs[10]:
+        chat_interface('gemini', 'Gemini 1.5 Flash', analyze_with_gemini)
+    
+    with tabs[11]:
         st.subheader("Estatísticas de Uso")
         df = token_report()
         if not df.empty:
             columns_order = [
                 'Modelo', 'Input Tokens', 'Output Tokens', 'Total Tokens',
-                'Custo Input', 'Custo Output', 'Custo USD', 'Custo R$',
-                'Tempo Total (s)'
+                'Custo Input', 'Custo Output', 'Custo USD', 'Custo R$', 'Tempo Total (s)'
             ] + [f'A{i+1}' for i in range(10)] + ['Média']
             
             st.dataframe(
@@ -457,13 +601,13 @@ def main_interface():
                 column_config={
                     "Modelo": st.column_config.TextColumn("Modelo", width="medium"),
                     **{f'A{i+1}': st.column_config.NumberColumn(
-                    f"Avaliação {i+1}",
-                    width="small",
-                    format="%.0f"
-                ) for i in range(10)},
-                "Média": st.column_config.NumberColumn("Média", format="%.2f")
-        }
-    )
+                        f"Avaliação {i+1}",
+                        width="small",
+                        format="%.0f"
+                    ) for i in range(10)},
+                    "Média": st.column_config.NumberColumn("Média", format="%.2f")
+                }
+            )
             
             st.download_button(
                 label="Baixar Relatório Completo",
@@ -473,6 +617,17 @@ def main_interface():
             )
         else:
             st.info("Nenhum dado disponível ainda. Inicie conversas para ver estatísticas.")
+    
+    with tabs[12]:
+        st.subheader("Texto do Recurso")
+        texto = st.session_state.get("texto_recurso", "")
+        if texto:
+            st.markdown(
+                f"<div style='background-color:#f9f9f9; padding:15px; border: 1px solid #ccc; border-radius:5px;'>{texto}</div>",
+                unsafe_allow_html=True
+            )
+        else:
+            st.info("Nenhum texto enviado para montagem do recurso.")
 
 # Execução principal
 if __name__ == "__main__":
