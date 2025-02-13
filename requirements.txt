@@ -6,3 +6,5 @@ Groq
 asyncio
 google.generativeai
 pandas
+openpyxl
+plotly
