@@ -26,10 +26,6 @@ def init_clients():
     genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
     return {
         'openai': OpenAI(api_key=os.getenv('OPENAI_API_KEY')),
-        'openrouter': OpenAI(
-            api_key="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",
-            base_url="https://openrouter.ai/api/v1"
-        ),
         'claude': anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY')),
         'maritalk': OpenAI(
             api_key=os.getenv('MARITALK_API_KEY'),
@@ -62,13 +58,10 @@ COSTS = {
     'llama70b_groq': (0.59, 0.79),
     'deepseek_chat': (0.27, 1.10),
     'deepseek_reasoner': (0.55, 2.19),
-    'gemini': (0.10, 0.40),
-    'o3-mini-high': (1.1, 4.4),
-    'qwen-max': (1.6, 6.4),
-    'qwen-plus': (0.4, 1.2)
+    'gemini': (0.10, 0.40)
 }
 
-# Funções de análise para os modelos utilizando suas bibliotecas nativas (mantidas sem alterações)
+# Funções de análise para cada modelo
 async def analyze_with_gpt(messages):
     start_time = time.time()
     try:
@@ -249,6 +242,7 @@ async def analyze_deepseek_reasoner(messages):
 async def analyze_with_gemini(messages):
     start_time = time.time()
     try:
+        # Alterado para utilizar o modelo Gemini 2.0 Flash
         model = st.session_state.clients['gemini'].GenerativeModel("gemini-2.0-flash")
         user_messages = [m["content"] for m in messages if m["role"] == "user"]
         last_user_message = user_messages[-1] if user_messages else ""
@@ -263,70 +257,6 @@ async def analyze_with_gemini(messages):
         return ai_response, input_tokens, output_tokens, time.time() - start_time
     except Exception as e:
         st.error(f"Erro no Gemini: {str(e)}")
-        return None, 0, 0, 0.0
-
-# Funções de análise para os novos modelos via Openrouter utilizando o OpenAI SDK
-async def analyze_with_o3_mini_high(messages):
-    start_time = time.time()
-    try:
-        system_message = [{"role": "system", "content": "Você é um assistente inteligente"}]
-        full_messages = system_message + messages
-        response = await asyncio.to_thread(
-            st.session_state.clients['openrouter'].chat.completions.create,
-            extra_headers={
-                "HTTP-Referer": os.getenv("YOUR_SITE_URL", ""),
-                "X-Title": os.getenv("YOUR_SITE_NAME", "")
-            },
-            model="openai/o3-mini-high",
-            messages=full_messages,
-            temperature=0.5
-        )
-        ai_response = response.choices[0].message.content
-        return ai_response, response.usage.prompt_tokens, response.usage.completion_tokens, time.time() - start_time
-    except Exception as e:
-        st.error(f"Erro no O3-Mini-high: {str(e)}")
-        return None, 0, 0, 0.0
-
-async def analyze_with_qwen_max(messages):
-    start_time = time.time()
-    try:
-        system_message = [{"role": "system", "content": "Você é um assistente inteligente"}]
-        full_messages = system_message + messages
-        response = await asyncio.to_thread(
-            st.session_state.clients['openrouter'].chat.completions.create,
-            extra_headers={
-                "HTTP-Referer": os.getenv("YOUR_SITE_URL", ""),
-                "X-Title": os.getenv("YOUR_SITE_NAME", "")
-            },
-            model="qwen/qwen-max",
-            messages=full_messages,
-            temperature=0.5
-        )
-        ai_response = response.choices[0].message.content
-        return ai_response, response.usage.prompt_tokens, response.usage.completion_tokens, time.time() - start_time
-    except Exception as e:
-        st.error(f"Erro no Qwen-Max: {str(e)}")
-        return None, 0, 0, 0.0
-
-async def analyze_with_qwen_plus(messages):
-    start_time = time.time()
-    try:
-        system_message = [{"role": "system", "content": "Você é um assistente inteligente"}]
-        full_messages = system_message + messages
-        response = await asyncio.to_thread(
-            st.session_state.clients['openrouter'].chat.completions.create,
-            extra_headers={
-                "HTTP-Referer": os.getenv("YOUR_SITE_URL", ""),
-                "X-Title": os.getenv("YOUR_SITE_NAME", "")
-            },
-            model="qwen/qwen-plus",
-            messages=full_messages,
-            temperature=0.5
-        )
-        ai_response = response.choices[0].message.content
-        return ai_response, response.usage.prompt_tokens, response.usage.completion_tokens, time.time() - start_time
-    except Exception as e:
-        st.error(f"Erro no Qwen-Plus: {str(e)}")
         return None, 0, 0, 0.0
 
 # Função auxiliar para exibir mensagens com formatação
@@ -498,10 +428,7 @@ def global_chat_interface():
                     ('llama70b_groq', analyze_llama70b_groq),
                     ('deepseek_chat', analyze_deepseek_chat),
                     ('deepseek_reasoner', analyze_deepseek_reasoner),
-                    ('gemini', analyze_with_gemini),
-                    ('o3-mini-high', analyze_with_o3_mini_high),
-                    ('qwen-max', analyze_with_qwen_max),
-                    ('qwen-plus', analyze_with_qwen_plus)
+                    ('gemini', analyze_with_gemini)
                 ]
                 for model_key, _ in models_to_send:
                     messages_key = f"{model_key}_messages"
@@ -553,9 +480,6 @@ def main_interface():
         "Deepseek Chat",
         "Deepseek Reasoner",
         "Gemini 2.0 Flash",
-        "O3-Mini-high",
-        "Qwen-Max",
-        "Qwen-Plus",
         "Resultados",
         "Gráficos",
         "Texto do Recurso"
@@ -581,14 +505,9 @@ def main_interface():
     with tabs[9]:
         chat_interface('deepseek_reasoner', 'Deepseek Reasoner', analyze_deepseek_reasoner)
     with tabs[10]:
+        # Alterado para exibir "Gemini 2.0 Flash"
         chat_interface('gemini', 'Gemini 2.0 Flash', analyze_with_gemini)
     with tabs[11]:
-        chat_interface('o3-mini-high', 'O3-Mini-high', analyze_with_o3_mini_high)
-    with tabs[12]:
-        chat_interface('qwen-max', 'Qwen-Max', analyze_with_qwen_max)
-    with tabs[13]:
-        chat_interface('qwen-plus', 'Qwen-Plus', analyze_with_qwen_plus)
-    with tabs[14]:
         st.subheader("Resultados das Avaliações")
         resultados = st.session_state.get("resultados", [])
         if resultados:
@@ -611,7 +530,7 @@ def main_interface():
             except Exception as e:
                 st.error(f"Erro ao carregar arquivo: {e}")
         historical = st.session_state.get("historical_results", [])
-        combined = historical + st.session_state.get("resultados", [])
+        combined = historical + resultados
         if combined:
             df_combined = pd.DataFrame(combined)
             st.markdown("#### Resultados Combinados")
@@ -627,7 +546,7 @@ def main_interface():
             )
         else:
             st.info("Nenhum resultado para exibir (sessão atual e/ou histórico).")
-    with tabs[15]:
+    with tabs[12]:
         st.subheader("Gráficos das Avaliações (Resultados Combinados)")
         historical = st.session_state.get("historical_results", [])
         session_results = st.session_state.get("resultados", [])
@@ -698,7 +617,7 @@ def main_interface():
             st.plotly_chart(fig_custo, use_container_width=True)
         else:
             st.info("Nenhuma avaliação para exibir gráficos.")
-    with tabs[16]:
+    with tabs[13]:
         st.subheader("Texto do Recurso")
         texto = st.session_state.get("texto_recurso", "")
         if texto:
