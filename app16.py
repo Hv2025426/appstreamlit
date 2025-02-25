@@ -109,7 +109,7 @@ async def analyze_with_claude(messages):
     try:
         response = await asyncio.to_thread(
             st.session_state.clients['claude'].messages.create,
-            model="claude-3-7-sonnet-20250219",
+            model="claude-3-7-sonnet-latest",
             max_tokens=4000,
             temperature=0.5,
             messages=messages,
