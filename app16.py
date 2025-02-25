@@ -546,7 +546,7 @@ def main_interface():
         "Todos os modelos",
         "GPT-4o-Mini",
         "GPT-4",
-        "Claude-3.5-Sonnet",
+        "Claude-3.7-Sonnet",
         "Maritalk Sabiá-3",
         "Llama 405B",
         "Llama 70B (Nebius)",
