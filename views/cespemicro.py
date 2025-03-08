@@ -76,8 +76,7 @@ COSTS = {
     'qwen-plus': (0.4, 1.2)
 }
 
-# Funções de análise para os modelos
-
+# ----------------- FUNÇÕES DE ANÁLISE -----------------
 async def analyze_with_gpt(messages):
     start_time = time.time()
     try:
@@ -112,7 +111,6 @@ async def analyze_with_gpt4(messages):
         st.error(f"Erro no GPT-4: {str(e)}")
         return None, 0, 0, 0.0
 
-# Agora o modelo "claude" utiliza a API do openrouter com o modelo "anthropic/claude-3.7-sonnet"
 async def analyze_with_claude(messages):
     start_time = time.time()
     try:
@@ -332,7 +330,7 @@ async def analyze_with_qwen_plus(messages):
         st.error(f"Erro no Qwen-Plus: {str(e)}")
         return None, 0, 0, 0.0
 
-# Função auxiliar para exibir mensagens com formatação
+# ----------------- FUNÇÃO AUXILIAR DE EXIBIÇÃO -----------------
 def display_message(role, content, model_name=None):
     if role == "user":
         st.markdown(
@@ -347,10 +345,12 @@ def display_message(role, content, model_name=None):
             unsafe_allow_html=True
         )
 
+# ----------------- TEMPLATE DE PROMPT -----------------
 # Novo template de prompt com apenas 2 inputs para o Acervo
 PROMPT_TEMPLATE = """Elabore um recurso administrativo com base nos seguintes dados:
 
- Instruções 
+
+Instruções 
 1.	Perfil   
 1.1.	Você é um sistema de avaliação linguística para textos em português, com conhecimento avançado da norma culta da língua portuguesa, incluindo gramática, vocabulário, ortografia e estilo formal.
 2.	Objetivo da Tarefa:
@@ -548,14 +548,10 @@ Linha	Texto da linha
 ________________________________________
 
 
-
 Identificação dos erros = {identificacao_erros}
 
 
 Texto a Ser Analisado = {texto_analisado}
-
-
-
 
 Prompt – Exemplos (Few-Shot Prompting) – Exemplo - Grafia Número 1
 Exemplo - Grafia 1:
@@ -770,14 +766,11 @@ Prezada banca, solicito que o erro de propriedade vocabular apontado na linha 39
 Inicialmente, a expressão “isto é” (l.39) expõe um elemento coesivo, o que demonstra pleno conhecimento dos elementos coesivos: tal escolha vocabular apresenta adequação.
 Ademais, a expressão “é necessário que” (l.39), usualmente escrita de modo incorreto, também está grafada corretamente, sem retoques: comprova-se, mais uma vez, plena propriedade vocabular.
 Assim, como visto, a linha 39 não apresenta erros de propriedade vocabular. Portanto, solicito a retirada do erro da linha 39.
-
 ________________________________________
-
-
 
 """
 
-# Interface de chat para cada modelo individual com 2 caixas de input
+# ----------------- INTERFACE DE CHAT INDIVIDUAL -----------------
 def chat_interface(model_key, model_name, analysis_func):
     if f"{model_key}_messages" not in st.session_state:
         st.session_state[f"{model_key}_messages"] = []
@@ -841,12 +834,11 @@ def chat_interface(model_key, model_name, analysis_func):
                     st.rerun()
     with col2:
         rating_counter = st.session_state.get(f"{model_key}_rating_counter", 0)
-        rating_key = f"rating_{model_key}_{rating_counter}"
         rating = st.selectbox(
             "Avalie o modelo (1-5)",
             options=[1, 2, 3, 4, 5],
             index=0,
-            key=rating_key,
+            key=f"rating_{model_key}_{rating_counter}",
             help="Selecione uma nota de 1 a 5 para avaliar o modelo."
         )
     with col3:
@@ -914,16 +906,17 @@ def chat_interface(model_key, model_name, analysis_func):
             else:
                 st.warning("Nenhuma resposta do modelo disponível para enviar.")
 
-# Interface de chat global para a aba "Todos os modelos" com os mesmos 2 inputs
+# ----------------- INTERFACE GLOBAL – AVALIAÇÃO SIMULTÂNEA -----------------
 def global_chat_interface():
+    # Renomeada para "Avaliação simultânea"
     if "global_messages" not in st.session_state:
         st.session_state.global_messages = []
-    with st.expander("Histórico de Conversa (Todos os modelos)", expanded=True):
+    with st.expander("Histórico de Conversa (Avaliação simultânea)", expanded=True):
         for msg in st.session_state.global_messages:
             if msg["role"] == "user":
                 display_message("user", msg["content"])
             else:
-                display_message("assistant", msg["content"], "Todos os Modelos")
+                display_message("assistant", msg["content"], "Avaliação simultânea")
     input_counter = st.session_state.get("global_input_counter", 0)
     
     global_identificacao_key = f"global_identificacao_erros_{input_counter}"
@@ -942,28 +935,38 @@ def global_chat_interface():
         placeholder="Insira o texto a ser analisado..."
     )
     
+    # Dicionário com os modelos disponíveis
+    available_models = {
+        "GPT-4o-Mini": ('gpt', analyze_with_gpt),
+        "GPT-4": ('gpt4', analyze_with_gpt4),
+        "Claude-3.7-Sonnet": ('claude', analyze_with_claude),
+        "Maritalk Sabiá-3": ('maritalk', analyze_maritalk),
+        "Llama 405B": ('llama405b', analyze_llama405b),
+        "Deepseek Chat": ('deepseek_chat', analyze_deepseek_chat),
+        "Deepseek Reasoner": ('deepseek_reasoner', analyze_deepseek_reasoner),
+        "Gemini 2.0 Flash": ('gemini', analyze_with_gemini),
+        "O3-Mini-high": ('o3-mini-high', analyze_with_o3_mini_high),
+        "Qwen-Max": ('qwen-max', analyze_with_qwen_max),
+        "Qwen-Plus": ('qwen-plus', analyze_with_qwen_plus)
+    }
+    
+    # Caixa de seleção múltipla para escolha dos modelos
+    selected_models = st.multiselect(
+        "Selecione os modelos para enviar a mensagem:",
+        options=list(available_models.keys()),
+        default=list(available_models.keys())
+    )
+    
     col1, col4 = st.columns([1.5, 2])
     with col1:
-        if st.button("Enviar Mensagem para todos os modelos", key="send_all"):
+        if st.button("Enviar Mensagem para os modelos selecionados", key="send_all"):
             if global_identificacao_erros.strip() and global_texto.strip():
                 prompt_formatado = PROMPT_TEMPLATE.format(
                     identificacao_erros=global_identificacao_erros.strip(),
                     texto_analisado=global_texto.strip()
                 )
                 st.session_state.global_messages.append({"role": "user", "content": prompt_formatado})
-                models_to_send = [
-                    ('gpt', analyze_with_gpt),
-                    ('gpt4', analyze_with_gpt4),
-                    ('claude', analyze_with_claude),
-                    ('maritalk', analyze_maritalk),
-                    ('llama405b', analyze_llama405b),
-                    ('deepseek_chat', analyze_deepseek_chat),
-                    ('deepseek_reasoner', analyze_deepseek_reasoner),
-                    ('gemini', analyze_with_gemini),
-                    ('o3-mini-high', analyze_with_o3_mini_high),
-                    ('qwen-max', analyze_with_qwen_max),
-                    ('qwen-plus', analyze_with_qwen_plus)
-                ]
+                models_to_send = [ available_models[m] for m in selected_models ]
                 for model_key, _ in models_to_send:
                     messages_key = f"{model_key}_messages"
                     if messages_key not in st.session_state:
@@ -979,7 +982,7 @@ def global_chat_interface():
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
-                    with st.spinner("Processando todos os modelos..."):
+                    with st.spinner("Processando os modelos selecionados..."):
                         responses = loop.run_until_complete(process_all_models())
                 finally:
                     loop.close()
@@ -997,16 +1000,16 @@ def global_chat_interface():
             st.session_state.global_input_counter = 0
             st.rerun()
 
-# Interface principal
+# ----------------- INTERFACE PRINCIPAL -----------------
 def main_interface():
     st.title("Português - Aspectos Microestruturais")
     if "resultados" not in st.session_state:
         st.session_state["resultados"] = []
     tabs = st.tabs([
-        "Todos os modelos",
+        "Avaliação simultânea",
         "GPT-4o-Mini",
         "GPT-4",
-        "Claude-3.5-Sonnet",
+        "Claude-3.7-Sonnet",
         "Maritalk Sabiá-3",
         "Llama 405B",
         "Deepseek Chat",
@@ -1026,7 +1029,7 @@ def main_interface():
     with tabs[2]:
         chat_interface('gpt4', 'GPT-4', analyze_with_gpt4)
     with tabs[3]:
-        chat_interface('claude', 'Claude-3.5-Sonnet', analyze_with_claude)
+        chat_interface('claude', 'Claude-3.7-Sonnet', analyze_with_claude)
     with tabs[4]:
         chat_interface('maritalk', 'Maritalk Sabiá-3', analyze_maritalk)
     with tabs[5]:
@@ -1110,7 +1113,7 @@ def main_interface():
         texto_recurso = st.session_state.get("texto_recurso", "")
         st.text_area("Texto do Recurso:", value=texto_recurso, height=300)
 
-# Inicializar os clientes, se ainda não estiverem no session_state, e chamar a interface principal
+# ----------------- INICIALIZAÇÃO -----------------
 if "clients" not in st.session_state:
     st.session_state.clients = init_clients()
 main_interface()
