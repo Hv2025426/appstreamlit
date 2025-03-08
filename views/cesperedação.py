@@ -204,9 +204,9 @@ async def analyze_with_gemini(messages):
     start_time = time.time()
     try:
         model = st.session_state.clients['gemini'].GenerativeModel("gemini-2.0-flash")
-        # Extract all user messages to maintain context
+        # Extrair todas as mensagens do usuário para manter o contexto
         user_messages = [m["content"] for m in messages if m["role"] == "user"]
-        # Join all messages with a separator to maintain context
+        # Junta as mensagens com um separador para manter o contexto
         context = "\n\nHistórico:\n".join(user_messages[:-1]) if len(user_messages) > 1 else ""
         prompt = user_messages[-1] if user_messages else ""
         if context:
@@ -247,7 +247,7 @@ async def analyze_with_o3_mini_high(messages):
 async def analyze_with_qwen_max(messages):
     start_time = time.time()
     try:
-        # Truncate messages if they're too long
+        # Trunca mensagens se forem muito grandes
         truncated_messages = []
         for msg in messages:
             content = msg.get("content", "")
@@ -272,12 +272,11 @@ async def analyze_with_qwen_max(messages):
             completion_tokens = response.usage.completion_tokens if response and response.usage else 0
         except AttributeError:
             st.warning("O Qwen-Max teve problemas processando o prompt. Tentando novamente com um prompt reduzido.")
-            # Try with just the last message if full history fails
             last_message = truncated_messages[-1] if truncated_messages else {"role": "user", "content": "Por favor, responda com base no contexto anterior."}
             response = await asyncio.to_thread(
                 st.session_state.clients['openrouter'].chat.completions.create,
                 model="qwen/qwen-max",
-                messages=[truncated_messages[0], last_message],  # Send system message and last user message
+                messages=[truncated_messages[0], last_message],
                 temperature=0.5,
                 max_tokens=2000,
                 extra_headers={
@@ -333,10 +332,10 @@ def display_message(role, content, model_name=None):
 # Template de prompt para formatação dos dados iniciais
 PROMPT_TEMPLATE = """Elabore um recurso administrativo com base nos seguintes dados:
 
-Instruções 
+- Instruções 
 1.	Perfil   
 1.1.	Você é um especialista em escrever recursos de provas discursivas de concursos públicos no Brasil. Você analisa os textos produzidos pelos candidatos em provas de concursos públicos e elabora recursos solicitando a majoração da pontuação dos candidatos para as bancas organizadoras. Esses recursos têm como objetivo aumentar a nota dos alunos, justificando que os textos apresentados atendem de forma satisfatória aos requisitos das questões da prova. Você possui domínio aprofundado das seguintes disciplinas:
-1.2.	Linguagem e Comunicação: Norma culta da língua portuguesa, incluindo interpretação textual e domínio da gramática. 
+1.2.	Linguagem e Comunicação: Norma culta da língua portuguesa, incluindo interpretação textual e domínio da gramática.
 1.3.	Direito: Constitucional, Administrativo, Tributário, Penal, Civil, e do Trabalho, com foco na legislação e jurisprudência aplicáveis.
 1.4.	Administração e Finanças Públicas: Teorias da administração, gestão de pessoas, planejamento estratégico, orçamento público, finanças públicas, controle interno e externo.
 1.5.	Economia: Microeconomia, Macroeconomia, Economia Brasileira, Economia do Setor Público, Economia da Regulação, com ênfase em modelos e indicadores econômicos.
@@ -603,7 +602,6 @@ Instruções
 6.1.5.3.	Gabarito Oficial exemplo [x]
 6.1.5.4.	Notas inicialmente recebidas após a avaliação da banca examinadora exemplo [x]
 6.1.5.5.	Recurso persuasivo-argumentativo exemplo [x]
-
 7.	Resultados esperados (Outputs):
 7.1.	Cálculo e Organização:
 7.1.1.	Calcular o valor dos conceitos de cada quesito.
@@ -624,7 +622,6 @@ Instruções
 
 ________________________________________
 
-
 Perguntas da prova = {perguntas_prova}
 
 
@@ -637,25 +634,48 @@ Gabarito Oficial = {gabarito_oficial}
 Notas inicialmente recebidas = {notas_iniciais}
 
 
-
 Prompt – Exemplos (Few-Shot Prompting) – Exemplo Número 1
-Exemplo 1:
+Exemplo 1 – CNMP:
 Perguntas da prova exemplo 1 = 
 A MISOGINIA DEVE SER CRIMINALIZADA NO BRASIL?
-
+ 
 Ao desenvolver seu texto, posicione-se nitidamente em relação à pergunta proposta [valor: 1,50 ponto] e aborde os seguintes aspectos: 
-
-manifestações de misoginia na sociedade brasileira; [valor: 12,00 pontos] 
-possíveis consequências da criminalização da misoginia caso o PL n.º 896/2023 seja aprovado. [valor: 15,00 pontos] 
+ 
+1	manifestações de misoginia na sociedade brasileira; [valor: 12,00 pontos] 
+2	possíveis consequências da criminalização da misoginia caso o PL n.º 896/2023 seja aprovado. [valor: 15,00 pontos] 
 
 ________________________________________
 
 Texto do candidato 1 =
-O percentual da população constituído por mulheres é maior em grande parte do mundo. Muitas culturas vêem na imagem da mulher algo Divino. Mas apesar desses fatos, a mulher é quem mais sofre pela mão da própria sociedade.
-Infelizmente, um exemplo atual e frequente é a violência contra a mulher. Ao especificar, com uma tipicidade própria, esse ato como feminicídio, foi possível atestar e diferenciar a agressão ao puro fato da vítima ser uma mulher.
-Mas há situações mais complexas em que a agressão cometida não é tão Clara. A exemplo temos o mercado de tecnologia da informação, em que as mulheres são costumeiramente não consideradas, questionadas e, por vezes, tem menores salários sem uma justificativa Clara e objetiva. E quando ganham posições de destaque são questionadas sobre a competência para assumir tal posição. 
-Nesse contexto, a misoginia é evidentemente algo negativo, porém, existe a problemática da comprovação do ato preconceituoso. Casos mal interpretados, de má fé, podem gerar consequências irreversíveis para o acusado, tornando este um direito complicado de se garantir às mulheres sem violar o direito do outro. 
-Mas a exemplo da tipificação dos casos de feminicídio, tal modificação na legislação tornou possível evidenciar e tratar de forma específica o problema da violência contra a mulher. Dessa forma, a criminalização da misoginia pode trazer benefícios para a sociedade como um todo, tornando-a mais igualitária. Porém, deve-se seguir todos os trâmites da justiça para garantir um justo julgamento aos seus acusados, de forma a evitar más interpretações e ações de comprovada má fé. 
+
+Linha	Texto da linha
+ 1	O percentual da população constituído por mulheres é maior em gran-
+ 2	de parte do mundo. Muitas culturas vêem na imagem da mulher algo Divi-
+ 3	no. Mas apesar desses fatos, a mulher é quem mais sofre pela mão da pró-
+ 4	pria sociedade.
+ 5	Infelizmente, um exemplo atual e frequente é a violência contra a mu-
+ 6	lher. Ao especificar, com uma tipicidade própria, esse ato como feminicídio,
+ 7	foi possível atestar e diferenciar a agressão ao puro fato da vítima ser 
+ 8	uma mulher.
+ 9	Mas há situações mais complexas em que a agressão cometida não é 
+10	tão Clara. A exemplo temos o mercado de tecnologia da informação, em 
+11	que as mulheres são costumeiramente não consideradas, questionadas e, por 
+12	vezes, tem menores salários sem uma justificativa Clara e objetiva. E 
+13	quando ganham posições de destaque são questionadas sobre a competência 
+14	para assumir tal posição. 
+15	Nesse contexto, a misoginia é evidentemente algo negativo, porém, exis-
+16	te a problemática da comprovação do ato preconceituoso. Ca-
+17	sos mal interpretados, de má fé, podem gerar consequências irreversíveis
+18	para o acusado, tornando este um direito complicado de se garantir 
+19	às mulheres sem violar o direito do outro. 
+20	Mas a exemplo da tipificação dos casos de feminicídio, tal modi-
+21	ficação na legislação tornou possível evidenciar e tratar de forma espe-
+22	cífica o problema da violência contra a mulher. Dessa forma, a crimina-
+23	lização da misoginia pode trazer benefícios para a sociedade como um 
+24	todo, tornando-a mais igualitária. Porém, deve-se seguir todos os trâ-
+25	mites da justiça para garantir um justo julgamento aos seus acusados, 
+26	de forma a evitar más interpretações e ações de comprovada má fé. 
+
 ________________________________________
 
 Gabarito Oficial exemplo 1 = 
@@ -704,30 +724,57 @@ Destaco que o modelo de resposta apresentada pela banca examinadora evidencia al
 Reconheço que poderia ter explorado em maior profundidade o tema do feminicídio, expondo mais argumentos e dados relacionados ao tema. Por essa razão, e considerando que a misoginia no mercado de trabalho foi discutida em profundidade, resta claro que o texto atende os critérios estabelecidos pela banca examinadora para ser enquadrado no conceito 3. Diante do exposto, solicito, respeitosamente, a majoração da nota de 7,5 pontos para 9,0 pontos.
 Item 2.3
 Em relação ao item 2.3 “possíveis consequências da criminalização da misoginia caso o PL Nº 896/2023 seja aprovado”, o edital apresenta 3 conceitos aptos a pontuar, ao ser avaliado em um dos critérios, são concedidos 5,0 pontos, totalizando 15 pontos. Solicito a majoração da minha nota por entender que o texto atende aos critérios estabelecidos pela prova para ser enquadrado no conceito 3. A seguir, exponho os argumentos que fundamentam o pedido de majoração da nota atribuída.
-Para ser enquadrado no conceito 2, o modelo de resposta da banca informa que o texto apresenta as consequências da criminalização de forma confusa, sem articular a argumentação ao posicionamento assumido no texto. Para se alcançar o conceito 3, é necessário apresentar uma dissertação que apresente as consequências da criminalização de modo coerente e articular sua argumentação com o posicionamento assumido no texto.
+ Para ser enquadrado no conceito 2, o modelo de resposta da banca informa que o texto apresenta as consequências da criminalização de forma confusa, sem articular a argumentação ao posicionamento assumido no texto. Para se alcançar o conceito 3, é necessário apresentar uma dissertação que apresente as consequências da criminalização de modo coerente e articular sua argumentação com o posicionamento assumido no texto.
 Em meu texto, me posiciono de forma clara e bem fundamentada a favor da criminalização da misoginia no Brasil. Quanto as possíveis consequências da criminalização da misoginia, argumento que “a criminalização da misoginia pode trazer benefícios para a sociedade como um todo, tornando-a mais igualitária” (linhas 22-24), assim como ocorreu com a tipificação dos casos de feminicídio, que “tornou possível evidenciar e tratar de forma específica o problema da violência contra a mulher.” (linha 21-22)
 Por outro lado, destaco que a comprovação do ato de violência de gênero por ser um problema (linhas 15-16). Nesse sentido, destaco que “Casos mal interpretados, de má fé, podem gerar consequências irreversíveis para o acusado” (linhas 16-18), assim, a criminalização da misoginia por ser utilizada em ações de má fé, configurando o desvio de sua finalidade original, além de eventuais erros de interpretação dos fatos, impondo de forma equivocada às consequências da lei ao acusado. Como forma de mitigar os riscos apresentados, afirmo que “deve-se seguir todos os trâmites da justiça para garantir um justo julgamento aos seus acusados, de forma a evitar más interpretações e ações de comprovada má fé.” (linhas 24-26), dessa forma, reforço a importância da participação ativa do poder judiciário nos esforços para minimizar os eventuais efeitos indesejados produzidos pela criminalização da misoginia. 
 Ao apresentar os benefícios, os riscos e as possíveis ações de mitigação, articulei a argumentação com o posicionamento assumido no texto ao defender a criminalização da misoginia como uma forma de combate a violência contra a mulher, como o feminicídio (linhas 6-8), e a discriminação no mercado de trabalho (linhas 10-14). Além disso, destaco que a tipificação dos casos de feminicídio foi um avanço importante na luta pelos direitos das mulheres (linhas 20-22) e que a criminalização da misoginia pode trazer benefícios semelhantes (linhas 22-24). A argumentação é consistente e coerente, apresentando uma visão equilibrada sobre a questão, que considera tanto os benefícios quanto os riscos da medida, e reforça a importância da participação do poder judiciário na aplicação da lei.
 Ante o exposto, fica evidenciado que o texto apresentou as consequências da criminalização de modo coerente e articulou sua argumentação com o posicionamento assumido no texto, favorável a criminalização da misoginia. Dessa forma, resta claro que o texto atende os critérios estabelecidos pela banca examinadora para ser enquadrado no conceito 3. Diante do exposto, solicito, respeitosamente, a majoração da nota de 10,0 pontos para 15,0 pontos.________________________________________
 Prompt – Exemplos (Few-Shot Prompting) – Exemplo Número 2
-Exemplo 2:
+Exemplo 2 CNMP:
 Perguntas da prova exemplo 2 = 
 A MISOGINIA DEVE SER CRIMINALIZADA NO BRASIL?
-
+ 
 Ao desenvolver seu texto, posicione-se nitidamente em relação à pergunta proposta [valor: 1,50 ponto] e aborde os seguintes aspectos: 
-
-manifestações de misoginia na sociedade brasileira; [valor: 12,00 pontos] 
-possíveis consequências da criminalização da misoginia caso o PL n.º 896/2023 seja aprovado. [valor: 15,00 pontos] 
+ 
+1	manifestações de misoginia na sociedade brasileira; [valor: 12,00 pontos] 
+2	possíveis consequências da criminalização da misoginia caso o PL n.º 896/2023 seja aprovado. [valor: 15,00 pontos] 
 
 ________________________________________
 
 Texto do candidato 2 =
-Nos dias atuais, é imprescindível a criminalização da prática de misoginia no Brasil. Isso porque atualmente, em especial com avanço e o alcance das redes sociais, tem se tornado cada vez mais comum o desrespeito no que concerne a diversidade cultural que o Brasil possui, de modo que com a devida criminalização se buscaria prevenir e reprimir condutas lesivas. 
-Insta ressaltar que a Constituição da República de 1988 assegura a todos, seja homem ou mulher, o direito ao trabalho sem distinção, bem como uma vida digna em respeito a todos os fundamentos e objetivos de uma sociedade plural como o Brasil.
-Assim, como exemplo de misoginia ainda existente, pode-se observar em determinadas empresas à procura de empregador do sexo masculino em anúncios, vez que não precisarão, via de regra, se ausentar do trabalho em razão de licenças para cuidar de seus filhos menores, demanda em sua grande maioria exercida por mulheres.
-Além disso, até pouco tempo atrás, na própria política Brasileira as mulheres não possuíam uma representatividade adequada, pois que havia uma visão errônea de ser um ambiente predominantemente masculino. Todavia, recentemente o mesmo Congresso Nacional aprovou lei garantindo ao menos 30% do preenchimento de suas cadeiras com representantes de um sexo, na tentativa de fortalecimento e apoio ao crescimento para uma consolidação da isonomia de gêneros.
 
-Como uma das principais consequências caso o PL Nº 896/2023 seja aprovado seria a prevenção e repressão de condutas que visam colocar a mulher como ser inferior, garantindo de um modo geral que ela seja vista em pé de igualdade com os homens, seja no que concerne a equiparação salarial como também vista como um ser humano capaz dos mesmos feitos produzidos pelo homem. Por fim, não se pode olvidar que a aprovação do PL trará a reafirmação de valores e direitos cada vez mais latentes na sociedade Brasileira. 
+Linha	Texto da linha
+ 1	Nos dias atuais, é imprescindível a criminalização da prática de misoginia
+ 2	no Brasil. Isso porque atualmente, em especial com avanço e o al-
+ 3	cance das redes sociais, tem se tornado cada vez mais comum o des-
+ 4	respeito no que concerne a diversidade cultural que o Brasil possui, de
+ 5	modo que com a devida criminalização se buscaria prevenir e reprimir 
+ 6	condutas lesivas. 
+ 7	Insta ressaltar que a Constituição da República de 1988 assegura a todos,
+ 8	seja homem ou mulher, o direito ao trabalho sem distinção, bem como
+ 9	uma vida digna em respeito a todos os fundamentos e objetivos de uma
+10	sociedade plural como o Brasil.
+11	Assim, como exemplo de misoginia ainda existente, pode-se observar em
+12	determinadas empresas à procura de empregador do sexo masculino 
+13	em anúncios, vez que não precisarão, via de regra, se ausentar do 
+14	trabalho em razão de licenças para cuidar de seus filhos menores, de-
+15	manda em sua grande maioria exercida por mulheres.
+16	Além disso, até pouco tempo atrás, na própria política Brasileira 
+17	as mulheres não possuíam uma representatividade adequada, pois que
+18	havia uma visão errônea de ser um ambiente predominantemente mas-
+19	culino. Todavia, recentemente o mesmo Congresso Nacional aprovou lei 
+20	garantindo ao menos 30% do preenchimento de suas cadeiras com repre-
+21	sentantes de um sexo, na tentativa de fortalecimento e apoio ao crescimen-
+22	to para uma consolidação da isonomia de gêneros.
+23	Como uma das principais consequências caso o PL Nº 896/2023 seja aprovado 
+24	seria a prevenção e repressão de condutas que visam colocar a mulher
+25	como ser inferior, garantindo de um modo geral que ela seja vista em 
+26	pé de igualdade com os homens, seja no que concerne a equiparação sala-
+27	rial como também vista como um ser humano capaz dos mesmos feitos pro-
+28	duzidos pelo homem. Por fim, não se pode olvidar que a aprovação do 
+29	PL trará a reafirmação de valores e direitos cada vez mais latentes na 
+30	sociedade Brasileira.
+
 ________________________________________
 
 Gabarito Oficial exemplo 2 = 
@@ -790,7 +837,7 @@ Considerando a situação hipotética acima, elabore, na condição de servidor 
 
 Quesitos Avaliados 	Faixa de valor 
 1 Apresentação (legibilidade, respeito às margens e indicação de parágrafos) eestrutura textual (organização das ideias em texto estruturado) 	0,00 a 4,00 
-2 Desenvolvimento do tema	
+2 Desenvolvimento do tema	 
 2.1 Introdução ao Sandbox e ao caso analisado 	0,00 a 15,00 
 2.2 Desenvolvimento dos componentes regulatórios e conhecimento da Resolução ANTT n.º 5.999/2022 e da regulação 	0,00 a 40,00 
 2.3 Conclusão 	0,00 a 21,00 
@@ -800,24 +847,69 @@ ________________________________________
 
 Texto do candidato 3 =
 
-Parecer:001/2024
-Assunto: proposta de sandbox regulatório apresentado pela empresa x
-Ementa: trata-se de parecer técnico de proposta de aplicação de inteligência artificial no monitoramento de frota ferroviária da empresa x - não objeção
-Disposições iniciais: 
-A empresa x apresentou essa agência a proposta para aplicar a inteligência artificial (IA) no monitoramento de sua frota ferroviária, com o objetivo de aprimorar a gestão de rotas, minimizar custos operacionais e aprimorar a qualidade dos serviços prestados. Neste contexto, o experimento prevê na implementação de dispositivos de cadastramento e sensores de locomotiva, que farão coleta de dados em tempo real sobre localização, condições da carga, consumo de combustível. A função da IA será a análise de dados para identificar padrões e prever demandas, com o objetivo de reduzir custos operacionais, otimizar rotas e melhorar a segurança na rota.
-Análise
-Primeiramente, cumpre salientar que a aplicação de IA como opção para monitoramento de frotas ferroviárias não está prevista no contrato de concessão da empresa x e das demais concessionárias de serviço de transporte ferroviário. Sendo assim, a aplicação dessa nova tecnologia no setor é um problema real, portanto, um tema passivo de ser tratado no ambiente experimental do sandbox regulatório. Neste contexto, conforme permite a resolução nº 5.999/2022 a simulação seria possível com a flexibilização contratual e das demais normas e requisitos regulatórios que a empresa se comprometeu em justificar.
-É importante destacar que, a empresa x possui o menor trecho de operação de frotas ferroviárias em concessão desta agência, logo, é um ambiente real, de pequena escala, configurando um potencial favorável para a aplicação da simulação. E, caso logre êxito, possui potencial de aplicabilidade para as demais concessões. Ademais, esse experimento pode contribuir, inclusive, para desenvolvimento de normativo desta agência regulamentando o uso de IA para monitoramento de frotas.
-A concessionária expõe que espera como resultado: redução de custos operacionais, aumento da eficiência logística, melhoria na segurança da frota e aumento da satisfação do cliente. Sobre o assunto, considerando a essência da ANTT em equilibrar os interesses da tríade: poder público, usuário e mercado, entende-se que os resultados esperados têm potencial benefícios para os usuários devido o aumento da satisfação e melhoria da segurança; para o mercado reduzindo custos operacionais e aumentando a eficiência e, serviria de subsídios para o poder público implementar IA nos futuros contratos de concessão. Além disso, os dados de IA tem potencial de aprimorar a regulação da ANTT. 
-Ademais, a empresa se compromete a entregar relatórios periódicos para monitoramento constante da ANTT. Nesse diapasão é importante salientar a importância de promover o diálogo entre as agências e concessionária, sendo essa uma das vantagens do sandbox. Esse ambiente experimental, por meio do diálogo, propicia identificação de falhas e ajustes no percurso da simulação.
-No que diz respeito ao prazo proposto, esta unidade técnica propõe o ajuste para 24 meses, sendo este o prazo razoável para o experimento em tela. 
-Por fim, destaca-se que foram propostos parâmetros técnicos objetivos para avaliar o resultado da proposta, com os quais será possível mensurar os potenciais benefícios do experimento, conforme prevê a resolução nº5.999/2022.
-Conclusão
-conclui-se pela não objeção da proposta de sandbox regulatório em tela, desde que, o prazo seja ajustado conforme exposto acima e, os documentos necessários previstos sejam entregues conforme cronograma.
-É o parecer.
-Nome
-especialista em regulação
-Brasília 14/04/2024
+Linha	Texto da linha
+ 1	Parecer:001/2024
+
+ 2	Assunto: proposta de sandbox regulatório apresentado pela empresa x
+ 3	Ementa: trata-se de parecer técnico de propos- 
+ 4	ta de aplicação de inteligência artificial no 
+ 5	monitoramento de frota ferroviária da empresa x  
+ 6	não objeção
+ 7	Disposições iniciais: 
+ 8	A empresa x apresentou essa agência a proposta para aplicar a inteligência artifi-
+ 9	cial (IA) no monitoramento de sua frota ferroviária, com o objetivo de aprimorar a 
+10	gestão de rotas, minimizar custos operacionais e aprimorar a qualidade dos ser-
+11	viços prestados. Neste contexto, o experimento prevê na implementação de disposi-
+12	tivos de cadastramento e sensores de locomotiva, que farão coleta de dados em tempo 
+13	real sobre localização, condições da carga, consumo de combustível. A função da IA será 
+14	a análise de dados para identificar padrões e prever demandas, com o objetivo de redu-
+15	zir custos operacionais, otimizar rotas e melhorar a segurança na rota.
+16	Análise
+17	Primeiramente, cumpre salientar que a aplicação de IA como opção para monitora-
+18	mento de frotas ferroviárias não está prevista no contrato de concessão da em-
+19	presa x e das demais concessionárias de serviço de transporte ferroviário. Sendo 
+20	assim, a aplicação dessa nova tecnologia no setor é um problema real, portanto, um 
+21	tema passivo de ser tratado no ambiente experimental do sandbox regulatório. Neste 
+22	contexto, conforme permite a resolução nº 5.999/2022 a simulação seria possível com 
+23	a flexibilização contratual e das demais normas e requisitos regulatórios que a
+24	empresa se comprometeu em justificar.
+25	É importante destacar que, a empresa x possui o menor trecho de operação 
+26	de frotas ferroviárias em concessão desta agência, logo, é um ambiente real, de 
+27	pequena escala, configurando um potencial favorável para a aplicação da simulação. 
+28	E, caso logre êxito, possui potencial de aplicabilidade para as demais concessões. 
+29	Ademais, esse experimento pode contribuir, inclusive, para desenvolvimento de 
+30	normativo desta agência regulamentando o uso de IA para monitoramento de frotas.
+31	A concessionária expõe que espera como resultado: redução de custos operacionais, 
+32	aumento da eficiência logística, melhoria na segurança da frota e aumento da satisfa-
+33	ção do cliente. Sobre o assunto, considerando a essência da ANTT em equilibrar os 
+34	interesses da tríade: poder público, usuário e mercado, entende-se que os resultados 
+35	esperados têm potencial benefícios para os usuários devido o aumento da satisfação e 
+36	melhoria da segurança; para o mercado reduzindo custos operacionais e aumentando 
+37	a eficiência e, serviria de subsídios para o poder público implementar IA nos 
+38	futuros contratos de concessão. Além disso, os dados de IA tem potencial de aprimo-
+39	rar a regulação da ANTT. 
+40	Ademais, a empresa se compromete a entregar relatórios periódicos para monitoramen-
+41	to constante da ANTT. Nesse diapasão é importante salientar a importância de 
+42	promover o diálogo entre as agências e concessionária, sendo essa uma das 
+43	vantagens do sandbox. Esse ambiente experimental, por meio do diálogo, propicia identi-
+44	ficação de falhas e ajustes no percurso da simulação.
+45	No que diz respeito ao prazo proposto, esta unidade técnica propõe o ajuste para 
+46	24 meses, sendo este o prazo razoável para o experimento em tela. 
+47	Por fim, destaca-se que foram propostos parâmetros técnicos objetivos para avaliar 
+48	o resultado da proposta, com os quais será possível mensurar os potenciais bene-
+49	fícios do experimento, conforme prevê a resolução nº5.999/2022.
+50	Conclusão
+
+51	Conclui-se pela não objeção da proposta de sandbox regulatório em tela,
+52	desde que, o prazo seja ajustado conforme exposto acima e, os documen-
+53	tos necessários previstos sejam entregues conforme cronograma.
+54	É o parecer.
+55	Nome
+56	especialista em regulação
+57	Brasília 14/04/2024
+58	
+59	
+60	
 
 ________________________________________
 
@@ -825,22 +917,22 @@ Gabarito Oficial exemplo 3 =
 
 Texto desejado - PADRÃO DE RESPOSTA DEFINITIVO
 O(A) candidato(a) deve introduzir o parecer contextualizando a proposição de uso de IA na regulação, indicando, no mínimo, aspectos de preço, qualidade, eficiência e escala, pois essas são métricas de interesse na regulação tradicional. Deve mostrar conhecimento sobre o setor de ferrovias, esclarecendo se a proposta é um problema a ser acompanhado pela ANTT quanto a esse setor. Devem ser considerados os aspectos de regulação com competição e por incentivos, além das características de a ferrovia ter preço e quantidade estabelecidos pela ANTT com metas de produção e ajustes tarifários, pois a proposta impactará nesses aspectos, no mínimo. 
-Em seguida, o(a) candidato(a) deve analisar o caso à luz do disposto no Capítulo II – Acesso ao Ambiente Regulatório Experimental da Resolução ANTT n.º 5.999/2022. No texto, deve destacar os requisitos de a proposta ter previsão de um edital pela ANTT do ambiente regulatório experimental, com os prazos, os procedimentos de seleção, os critérios de elegibilidade e as condições de participação, sem garantir direitos ou expectativas antes da autorização temporária. No que tange à elegibilidade, deverá verificar se a proponente é pessoa jurídica de direito privado que atua em transportes terrestres mediante autorização da ANTT, com capacidade técnica e financeira, se ela se compromete a seguir as obrigações do ambiente experimental, se está garantido que seus administradores e sócios não têm impedimentos legais ou judiciais, se ela não está proibida de participar em licitações nem foi penalizada com cassação nos últimos cinco anos e se prevê o cumprimento do dever de assegurar proteção aos usuários e manutenção de registros para auditoria. Além disso, deverá indicar se há métricas de avaliação e quantidade de participantes. No texto, deve ficar clara a compreensão do(a) candidato(a) quanto aos incisos VI e VII do art. 11 da Resolução ANTT n.º 5.999/2022, que tratam do sigilo das informações, particularmente, e estão reproduzidos a seguir. 
-
+ Em seguida, o(a) candidato(a) deve analisar o caso à luz do disposto no Capítulo II – Acesso ao Ambiente Regulatório Experimental da Resolução ANTT n.º 5.999/2022. No texto, deve destacar os requisitos de a proposta ter previsão de um edital pela ANTT do ambiente regulatório experimental, com os prazos, os procedimentos de seleção, os critérios de elegibilidade e as condições de participação, sem garantir direitos ou expectativas antes da autorização temporária. No que tange à elegibilidade, deverá verificar se a proponente é pessoa jurídica de direito privado que atua em transportes terrestres mediante autorização da ANTT, com capacidade técnica e financeira, se ela se compromete a seguir as obrigações do ambiente experimental, se está garantido que seus administradores e sócios não têm impedimentos legais ou judiciais, se ela não está proibida de participar em licitações nem foi penalizada com cassação nos últimos cinco anos e se prevê o cumprimento do dever de assegurar proteção aos usuários e manutenção de registros para auditoria. Além disso, deverá indicar se há métricas de avaliação e quantidade de participantes. No texto, deve ficar clara a compreensão do(a) candidato(a) quanto aos incisos VI e VII do art. 11 da Resolução ANTT n.º 5.999/2022, que tratam do sigilo das informações, particularmente, e estão reproduzidos a seguir. 
+ 
 “VI – indicar, de forma justificada, as informações contidas na documentação exigida, cuja divulgação possa representar vantagem competitiva a outros agentes econômicos, e que, portanto, devem ser tratadas pela ANTT, conforme hipóteses legais de sigilo; e 
 VII – manifestar, expressamente, que anui com a possibilidade de a ANTT compartilhar suas informações, inclusive aquelas que se enquadrem no inciso VI, com eventuais terceiros que possam auxiliar a ANTT na análise da documentação, observados os termos previstos no art. 15.” 
-
-O(A) candidato(a) deve concluir seu texto com a decisão de aprovação, ou não, da proposta. Espera-se que a proposta seja reprovada ou aprovada com ajustes. Se o parecer concluir pela aprovação da proposta com ajustes, deverá ser indicada a necessidade de ajustes quanto ao sigilo das informações, ao esclarecimento das métricas de medidas e aos pontos que podem ser melhor descritos na proposta de acordo com a citada resolução, pois a proposta apresentada está minimalista, indicando apenas atender à resolução, quando deveriam estar claros os critérios nos itens I e V. Por fim, deve-se abordar a necessidade de algum item relativo a impactos ambientais e sociais do experimento. 
+ 
+ O(A) candidato(a) deve concluir seu texto com a decisão de aprovação, ou não, da proposta. Espera-se que a proposta seja reprovada ou aprovada com ajustes. Se o parecer concluir pela aprovação da proposta com ajustes, deverá ser indicada a necessidade de ajustes quanto ao sigilo das informações, ao esclarecimento das métricas de medidas e aos pontos que podem ser melhor descritos na proposta de acordo com a citada resolução, pois a proposta apresentada está minimalista, indicando apenas atender à resolução, quando deveriam estar claros os critérios nos itens I e V. Por fim, deve-se abordar a necessidade de algum item relativo a impactos ambientais e sociais do experimento. 
 
 QUESITOS AVALIADOS 
-
+ 
 Quesito 2.1 
 Conceito 0 – Não abordou o quesito. 
 Conceito 1 – Limitou-se a uma abordagem do ambiente de teste do Sandbox, de forma desconectada do caso em apreço. 
 Conceito 2 – Mencionou, de forma precária, o papel da IA na proposta, sem desenvolver a aplicação e o motivo de fazer o Sandbox. 
 Conceito 3 – Contextualizou o processo de implementação do Sandbox no Brasil e como se relaciona com a proposta apresentada. 
 Conceito 4 – Abordou os aspectos de preço, qualidade, eficiência e escala que motivam a construção do Sandbox, esclarecendo que são métricas de interesse na regulação tradicional. 
-
+ 
 Quesito 2.2 
 Conceito 0 – Não abordou o quesito. 
 Conceito 1 – Mencionou que a Resolução ANTT n.º 5.999/2022 delimita o Sandbox regulatório e que há seções que tipificam e descrevem elementos a serem tratados na constituição do ambiente experimental, mas não detalhou esses elementos. 
@@ -862,7 +954,7 @@ Notas inicialmente recebidas após a avaliação da banca examinadora exemplo 3 
 PARECER
 Quesitos Avaliados 	Faixa de valor 	Nota
 1 Apresentação (legibilidade, respeito às margens e indicação de parágrafos) e estrutura textual (organização das ideias em texto estruturado) 	0,00 a 4,00 	4,00
-2 Desenvolvimento do tema		
+2 Desenvolvimento do tema	 	 
 2.1 Introdução ao Sandbox e ao caso analisado 	0,00 a 15,00 	11,25
 2.2 Desenvolvimento dos componentes regulatórios e conhecimento da Resolução ANTT n.º 5.999/2022 e da regulação 	0,00 a 40,00 	20,00
 2.3 Conclusão 	0,00 a 21,00 	7,88
@@ -886,25 +978,25 @@ Diante disso, é bem claro que consignei todo o conteúdo apregoado pela banca, 
 Sendo assim, solicito o aumento da nota no item 2.1 de 11,25 para 15 pontos.
 
 2.2 – Desenvolvimento dos componentes regulatórios e conhecimento da Resolução ANTT n.º 5.999/2022 e da regulação
-Nobre examinadora, solicito a elevação da minha nota neste quesito 2.2, pois considero que o desconto de 20 pontos (50%) não condiz com aquilo que apresentei.
-Preliminarmente, cabe destacar que o critério em apreço demandou que os candidatos discorressem sobre o desenvolvimento dos componentes regulatórios e conhecimento da Resolução ANTT n.º 5.999/2022 e da regulação.
-Especificamente acerca do tema, vejo que a banca buscou a citação dos seguintes argumentos: “o(a) candidato(a) deve analisar o caso à luz do disposto no Capítulo II – Acesso ao Ambiente Regulatório Experimental da Resolução ANTT n.º 5.999/2022. No texto, deve destacar os requisitos de a proposta ter previsão de um edital pela ANTT do ambiente regulatório experimental, com os prazos, os procedimentos de seleção, os critérios de elegibilidade e as condições de participação, sem garantir direitos ou expectativas antes da autorização temporária. No que tange à elegibilidade, deverá verificar se a proponente é pessoa jurídica de direito privado que atua em transportes terrestres mediante autorização da ANTT, com capacidade técnica e financeira, se ela se compromete a seguir as obrigações do ambiente experimental, se está garantido que seus administradores e sócios não têm impedimentos legais ou judiciais, se ela não está proibida de participar em licitações nem foi penalizada com cassação nos últimos cinco anos e se prevê o cumprimento do dever de assegurar proteção aos usuários e manutenção de registros para auditoria. Além disso, deverá indicar se há métricas de avaliação e quantidade de participantes”.
-Nesse quesito, a banca graduou a pontuação 5 critérios, com nota proporcional de 8 pontos por conceito.
-Apresentado esse panorama, percebo que a Banca classificou meus argumentos entre os conceitos 2 e 3, com nota de 20 de 40 possíveis.
-Segundo a previsão editalícia, a prova discursiva foi avaliada por pelo menos dois examinadores, sendo que a minha nota de conteúdo foi obtida pela média aritmética de duas notas convergentes atribuídas por examinadores distintos.
-Analisando os critérios, noto que um dos examinadores entendeu que apresentei apenas um requisito estabelecido na Resolução ANTT n.º 5.999/2022 (16 pontos – conceito 2), já o outro considerou que trouxe 2 requisitos (24 pontos – conceito 3). Assim, fiquei com a nota intervalada (16+24/2 = 20 pontos).
-Não obstante, verifica-se que nas linhas 40-44, 45-46 e 47-49 trouxe o conteúdo almejado, motivo que justifica a atribuição da nota associada ao critério 4 (32 pontos) ou pelo menos de 24 pontos (conceito 3), conforme já apontou um dos avaliadores.
-Sobre esse aspecto, ressalto que o trecho presente às linhas 41-44 indica a apresentação de um dos requisitos da Resolução ANTT n.º 5.999/2022, nesses termos: “é importante salientar a importância de promover o diálogo entre as agências e concessionária, sendo essa uma das vantagens do Sandbox. Esse ambiente experimental, por meio do diálogo, propicia identificação de falhas e ajustes no percurso da simulação”.
-Tal afirmação está associada ao requisito de condições de participação, visto que o diálogo é um fator central no relacionamento entre o sistema de regulação e as concessionárias.
-Assim, resta evidenciado a correta citação do primeiro elemento.
-Por seu turno, nas linhas 45-46 abordei outro requisito, consoante explicitado a seguir: “No que diz respeito ao prazo proposto, esta unidade técnica propõe o ajuste para 24 meses, sendo este o prazo razoável para o experimento em tela”.
-Aqui, não há muito o que discutir, já que o trecho vertido acima aponta corretamente um dos elementos referenciados pela banca, isto é, o prazo.
-Por isso, fica claro o atendimento de mais um requisito.
-De mais a mais, nas linhas 47-49 consignei mais um requisito da Resolução ANTT n.º 5.999/2022, o terceiro elencado, a teor do que segue: “destaca-se que foram propostos parâmetros técnicos objetivos para avaliar o resultado da proposta, com os quais será possível mensurar os potenciais benefícios do experimento, conforme prevê a Resolução 5.099/2022”.
-Nesse ponto, o parágrafo posto demonstra, na essência, que apresentei que a proposta deve obedecer aos procedimentos de seleção, outro requisito ponderado no normativo de regência, o qual, inclusive, fiz referência no final do período.
-Assim, é notório o preenchimento da maior parte dos requisitos de resposta, o que atesta o atendimento de 3 requisitos contidos na Resolução ANTT n.º 5.999/2022 e, consequentemente as disposições do conceito 4 do item 2.2.
-Dessa forma, é nítido que fiz por valer o enquadramento no critério avaliativo de nº 4, merecendo a nota de 32 pontos ou, alternativamente, de pelo menos 24 (critério 3), consoante sinalizou um dos examinadores.
-Diante disso, solicito a majoração da nota do quesito 2.2 de 20 para 32 pontos ou para ao menos 24 pontos.
+	Nobre examinadora, solicito a elevação da minha nota neste quesito 2.2, pois considero que o desconto de 20 pontos (50%) não condiz com aquilo que apresentei.
+	Preliminarmente, cabe destacar que o critério em apreço demandou que os candidatos discorressem sobre o desenvolvimento dos componentes regulatórios e conhecimento da Resolução ANTT n.º 5.999/2022 e da regulação.
+	Especificamente acerca do tema, vejo que a banca buscou a citação dos seguintes argumentos: “o(a) candidato(a) deve analisar o caso à luz do disposto no Capítulo II – Acesso ao Ambiente Regulatório Experimental da Resolução ANTT n.º 5.999/2022. No texto, deve destacar os requisitos de a proposta ter previsão de um edital pela ANTT do ambiente regulatório experimental, com os prazos, os procedimentos de seleção, os critérios de elegibilidade e as condições de participação, sem garantir direitos ou expectativas antes da autorização temporária. No que tange à elegibilidade, deverá verificar se a proponente é pessoa jurídica de direito privado que atua em transportes terrestres mediante autorização da ANTT, com capacidade técnica e financeira, se ela se compromete a seguir as obrigações do ambiente experimental, se está garantido que seus administradores e sócios não têm impedimentos legais ou judiciais, se ela não está proibida de participar em licitações nem foi penalizada com cassação nos últimos cinco anos e se prevê o cumprimento do dever de assegurar proteção aos usuários e manutenção de registros para auditoria. Além disso, deverá indicar se há métricas de avaliação e quantidade de participantes”.
+	Nesse quesito, a banca graduou a pontuação 5 critérios, com nota proporcional de 8 pontos por conceito.
+	Apresentado esse panorama, percebo que a Banca classificou meus argumentos entre os conceitos 2 e 3, com nota de 20 de 40 possíveis.
+	Segundo a previsão editalícia, a prova discursiva foi avaliada por pelo menos dois examinadores, sendo que a minha nota de conteúdo foi obtida pela média aritmética de duas notas convergentes atribuídas por examinadores distintos.
+	Analisando os critérios, noto que um dos examinadores entendeu que apresentei apenas um requisito estabelecido na Resolução ANTT n.º 5.999/2022 (16 pontos – conceito 2), já o outro considerou que trouxe 2 requisitos (24 pontos – conceito 3). Assim, fiquei com a nota intervalada (16+24/2 = 20 pontos).
+	Não obstante, verifica-se que nas linhas 40-44, 45-46 e 47-49 trouxe o conteúdo almejado, motivo que justifica a atribuição da nota associada ao critério 4 (32 pontos) ou pelo menos de 24 pontos (conceito 3), conforme já apontou um dos avaliadores.
+	Sobre esse aspecto, ressalto que o trecho presente às linhas 41-44 indica a apresentação de um dos requisitos da Resolução ANTT n.º 5.999/2022, nesses termos: “é importante salientar a importância de promover o diálogo entre as agências e concessionária, sendo essa uma das vantagens do Sandbox. Esse ambiente experimental, por meio do diálogo, propicia identificação de falhas e ajustes no percurso da simulação”.
+	Tal afirmação está associada ao requisito de condições de participação, visto que o diálogo é um fator central no relacionamento entre o sistema de regulação e as concessionárias.
+	Assim, resta evidenciado a correta citação do primeiro elemento.
+	Por seu turno, nas linhas 45-46 abordei outro requisito, consoante explicitado a seguir: “No que diz respeito ao prazo proposto, esta unidade técnica propõe o ajuste para 24 meses, sendo este o prazo razoável para o experimento em tela”.
+	Aqui, não há muito o que discutir, já que o trecho vertido acima aponta corretamente um dos elementos referenciados pela banca, isto é, o prazo.
+	Por isso, fica claro o atendimento de mais um requisito.
+	De mais a mais, nas linhas 47-49 consignei mais um requisito da Resolução ANTT n.º 5.999/2022, o terceiro elencado, a teor do que segue: “destaca-se que foram propostos parâmetros técnicos objetivos para avaliar o resultado da proposta, com os quais será possível mensurar os potenciais benefícios do experimento, conforme prevê a Resolução 5.099/2022”.
+	Nesse ponto, o parágrafo posto demonstra, na essência, que apresentei que a proposta deve obedecer aos procedimentos de seleção, outro requisito ponderado no normativo de regência, o qual, inclusive, fiz referência no final do período.
+	Assim, é notório o preenchimento da maior parte dos requisitos de resposta, o que atesta o atendimento de 3 requisitos contidos na Resolução ANTT n.º 5.999/2022 e, consequentemente as disposições do conceito 4 do item 2.2.
+	Dessa forma, é nítido que fiz por valer o enquadramento no critério avaliativo de nº 4, merecendo a nota de 32 pontos ou, alternativamente, de pelo menos 24 (critério 3), consoante sinalizou um dos examinadores.
+	Diante disso, solicito a majoração da nota do quesito 2.2 de 20 para 32 pontos ou para ao menos 24 pontos.
 
 2.3 – Conclusão
 
@@ -927,13 +1019,13 @@ Exemplo 4 - MPO:
 Perguntas da prova exemplo 4 = 
 
 Considerando as disposições da Lei n.º 14.133/2021, redija um texto dissertativo respondendo, de forma fundamentada, aos seguintes questionamentos. 
-
-É cabível a contratação direta nos casos em que um objeto deva ser necessariamente contratado por meio de credenciamento? Há necessidade de apresentação de documento de formalização de demanda e de termo de referência nesse caso? [valor: 10,00 pontos] 
-Em um processo licitatório no qual não tenha havido licitantes interessados, caso se mantenham todas as condições definidas no edital da licitação realizada há menos de um ano, admite-se a contratação direta? Nesse caso, é necessário que a contratada seja empresa brasileira de pequeno porte? [valor: 10,00 pontos] 
-Em quais hipóteses a legislação permite que a licitação seja restrita a bens e serviços com tecnologia desenvolvida no Brasil? [valor: 10,00 pontos] 
-Nas hipóteses de contratação integrada, é obrigatório que a administração pública elabore projeto básico e anteprojeto? [valor: 9,00 pontos] 
-Para quais tipos de contratação deve ser adotado o diálogo competitivo? [valor: 9,50 pontos] Quais condições devem ser atendidas pelo objeto da contratação nessa modalidade de licitação? [valor: 9,00 pontos] 
-Qual é a diferença entre os critérios de julgamento menor preço e maior retorno econômico? [valor: 9,00 pontos] 
+ 
+1	É cabível a contratação direta nos casos em que um objeto deva ser necessariamente contratado por meio de credenciamento? Há necessidade de apresentação de documento de formalização de demanda e de termo de referência nesse caso? [valor: 10,00 pontos] 
+2	Em um processo licitatório no qual não tenha havido licitantes interessados, caso se mantenham todas as condições definidas no edital da licitação realizada há menos de um ano, admite-se a contratação direta? Nesse caso, é necessário que a contratada seja empresa brasileira de pequeno porte? [valor: 10,00 pontos] 
+3	Em quais hipóteses a legislação permite que a licitação seja restrita a bens e serviços com tecnologia desenvolvida no Brasil? [valor: 10,00 pontos] 
+4	Nas hipóteses de contratação integrada, é obrigatório que a administração pública elabore projeto básico e anteprojeto? [valor: 9,00 pontos] 
+5	Para quais tipos de contratação deve ser adotado o diálogo competitivo? [valor: 9,50 pontos] Quais condições devem ser atendidas pelo objeto da contratação nessa modalidade de licitação? [valor: 9,00 pontos] 
+6	Qual é a diferença entre os critérios de julgamento menor preço e maior retorno econômico? [valor: 9,00 pontos] 
 
 
 
@@ -945,7 +1037,7 @@ Qual é a diferença entre os critérios de julgamento menor preço e maior reto
 
 Quesitos Avaliados	Faixa de valor 
 1 Apresentação (legibilidade, respeito às margens e indicação de parágrafos) e estrutura textual (organização das ideias em texto estruturado) 	0,00 a 3,50 
-2 Desenvolvimento do tema	
+2 Desenvolvimento do tema	 
 2.1 Possibilidade de contratação direta (inexigibilidade) 	0,00 a 10,00 
 2.2 Possibilidade de contratação direta (dispensa) 	0,00 a 10,00 
 2.3 Hipóteses em que a legislação permite que a licitação seja restrita a bens e serviços com tecnologia desenvolvida no Brasil 	0,00 a 10,00 
@@ -960,15 +1052,15 @@ ________________________________________
 Texto do candidato 4 =
 
 Linha	Texto da linha
-1	Nos termos da Lei 14.133/2021, o credenciamento é um proce-
-2	dimento auxiliar de contratação. Para o credenciamento é cabível a contrata-
-3	ção direta, considerando que é uma das possibilidades de contratação por ixe
-4	inexigibilidade de licitação. Para se credenciar, basta que os interessados com_
-5	pareçam à Administração Pública e comprovem que cumprem os requisitos
-6	para execução do objeto. Ressalta-se que não há necessidade de elaboração
-7	de documento de formalização de demanda e de termo de referência para a
-8	contratação por meio de credenciamento.
-9	Em um procedimento licitatório no qual não tenha havido licitantes
+ 1	Nos termos da Lei 14.133/2021, o credenciamento é um proce-
+ 2	dimento auxiliar de contratação. Para o credenciamento é cabível a contrata-
+ 3	ção direta, considerando que é uma das possibilidades de contratação por ixe
+ 4	inexigibilidade de licitação. Para se credenciar, basta que os interessados com_
+ 5	pareçam à Administração Pública e comprovem que cumprem os requisitos
+ 6	para execução do objeto. Ressalta-se que não há necessidade de elaboração
+ 7	de documento de formalização de demanda e de termo de referência para a
+ 8	contratação por meio de credenciamento.
+ 9	Em um procedimento licitatório no qual não tenha havido licitantes
 10	interessados e, desde que mantidas todas as condições definidas no edi-
 11	tal e a licitação tenha sido realizada há menos de um ano, é admitida
 12	a contratação direta. Essa situação de não haver licitantes interessados é u-
@@ -1030,15 +1122,15 @@ Gabarito Oficial exemplo 4 =
 Texto desejado - PADRÃO DE RESPOSTA DEFINITIVO
 
 De acordo com o art. 74, IV, da Lei n.º 14.133/2021, a contratação necessariamente por meio de credenciamento é hipótese de inexigibilidade de licitação, haja vista a inviabilidade de competição. Embora a licitação seja inexigível, o processo de contratação direta deve, obrigatoriamente, ser instruído com o documento de formalização de demanda e, se for o caso, também com o termo de referência, conforme dispõe o art. 72 da Lei. 
-A licitação será dispensável no caso de contratação que mantenha todas as condições definidas em edital de licitação e não venham a surgir licitantes interessados, conforme dispõe o art. 75, III, a, da Lei. Nesse caso, a Lei não prevê a necessidade de a empresa participante comprovar ser empresa brasileira e(ou) de pequeno porte. 
-A licitação pode ser restrita a bens e serviços com tecnologia desenvolvida no país produzidos de acordo com o processo produtivo básico de que trata a Lei nº 10.176, de 11 de janeiro de 2001, nas contratações destinadas à implantação, à manutenção e ao aperfeiçoamento dos sistemas de tecnologia de informação e comunicação considerados estratégicos em ato do Poder Executivo federal. 
-No regime de contratação integrada, a administração pública é dispensada da elaboração de projeto básico, contudo, deve elaborar o anteprojeto de acordo com a metodologia definida em ato do órgão competente, devendo observar os requisitos estabelecidos na Lei. 
-O diálogo competitivo é a modalidade de licitação adotada para contratação de obras, serviços e compras, em que a administração pública realiza diálogos com licitantes previamente selecionados mediante critérios objetivos, com o intuito de desenvolver uma ou mais alternativas capazes de atender às suas necessidades, devendo os licitantes apresentar proposta final após o encerramento dos diálogos, sendo restrita nos casos em que a Administração verifique a necessidade de definir e identificar os meios e as alternativas que possam satisfazer suas necessidades. 
-O diálogo competitivo é restrito aos casos em que a administração pública vise à contratação de objetos que envolvam as seguintes condições: a) inovação tecnológica ou técnica; b) impossibilidade de o órgão ou a entidade ter sua necessidade satisfeita sem a adaptação de soluções disponíveis no mercado; e c) impossibilidade de as especificações técnicas serem definidas com precisão suficiente pela administração. 
-De acordo com a Lei, o julgamento por menor preço considera o menor dispêndio para a administração pública, atendidos os parâmetros mínimos de qualidade definidos no edital de licitação. Por sua vez, o julgamento por maior retorno econômico, utilizado exclusivamente para a celebração de contrato de eficiência, considerará a maior economia para a administração pública, e a remuneração deverá ser fixada em percentual que incidirá de forma proporcional à economia efetivamente obtida na execução do contrato. 
+ 	A licitação será dispensável no caso de contratação que mantenha todas as condições definidas em edital de licitação e não venham a surgir licitantes interessados, conforme dispõe o art. 75, III, a, da Lei. Nesse caso, a Lei não prevê a necessidade de a empresa participante comprovar ser empresa brasileira e(ou) de pequeno porte. 
+ A licitação pode ser restrita a bens e serviços com tecnologia desenvolvida no país produzidos de acordo com o processo produtivo básico de que trata a Lei nº 10.176, de 11 de janeiro de 2001, nas contratações destinadas à implantação, à manutenção e ao aperfeiçoamento dos sistemas de tecnologia de informação e comunicação considerados estratégicos em ato do Poder Executivo federal. 
+ No regime de contratação integrada, a administração pública é dispensada da elaboração de projeto básico, contudo, deve elaborar o anteprojeto de acordo com a metodologia definida em ato do órgão competente, devendo observar os requisitos estabelecidos na Lei. 
+ O diálogo competitivo é a modalidade de licitação adotada para contratação de obras, serviços e compras, em que a administração pública realiza diálogos com licitantes previamente selecionados mediante critérios objetivos, com o intuito de desenvolver uma ou mais alternativas capazes de atender às suas necessidades, devendo os licitantes apresentar proposta final após o encerramento dos diálogos, sendo restrita nos casos em que a Administração verifique a necessidade de definir e identificar os meios e as alternativas que possam satisfazer suas necessidades. 
+ O diálogo competitivo é restrito aos casos em que a administração pública vise à contratação de objetos que envolvam as seguintes condições: a) inovação tecnológica ou técnica; b) impossibilidade de o órgão ou a entidade ter sua necessidade satisfeita sem a adaptação de soluções disponíveis no mercado; e c) impossibilidade de as especificações técnicas serem definidas com precisão suficiente pela administração. 
+ De acordo com a Lei, o julgamento por menor preço considera o menor dispêndio para a administração pública, atendidos os parâmetros mínimos de qualidade definidos no edital de licitação. Por sua vez, o julgamento por maior retorno econômico, utilizado exclusivamente para a celebração de contrato de eficiência, considerará a maior economia para a administração pública, e a remuneração deverá ser fixada em percentual que incidirá de forma proporcional à economia efetivamente obtida na execução do contrato. 
 
 QUESITOS AVALIADOS 
-
+ 
 QUESITO 2.1 
 Conceito 0 – Não respondeu ou respondeu de forma totalmente equivocada. 
 Conceito 1 – Respondeu corretamente ser cabível a contratação direta, no entanto, não fundamentou sua resposta ou o fez de forma totalmente incorreta. 
@@ -1055,25 +1147,25 @@ QUESITO 2.3
 Conceito 0 – Não respondeu ou respondeu de forma totalmente equivocada. 
 Conceito 1 – Respondeu corretamente que a licitação pode ser restrita a bens e serviços com tecnologia desenvolvida no país nas contratações destinadas à implantação, à manutenção e ao aperfeiçoamento dos sistemas de tecnologia de informação e comunicação, no entanto, fundamentou sua resposta de maneira insuficiente ou parcialmente incorreta. 
 Conceito 2 – Respondeu corretamente que a licitação pode ser restrita a bens e serviços com tecnologia desenvolvida no país nas contratações destinadas à implantação, à manutenção e ao aperfeiçoamento dos sistemas de tecnologia de informação e comunicação, fundamentando sua resposta de maneira suficiente e correta. 
-
+ 
 QUESITO 2.4 
 Conceito 0 – Não respondeu ou respondeu de forma totalmente incorreta. 
 Conceito 1 – Respondeu corretamente que, no regime de contratação integrada, a administração pública é dispensada da elaboração de projeto básico e do anteprojeto. 
 Conceito 2 – Respondeu corretamente que, no regime de contratação integrada, a administração pública é dispensada da elaboração de projeto básico, contudo, deve elaborar o anteprojeto de acordo com a metodologia definida em ato do órgão competente. 
-
+ 
 QUESITO 2.5 
 Conceito 0 – Não respondeu ou respondeu de forma totalmente incorreta. 
 Conceito 1 – Mencionou de forma parcialmente correta OU sobre objetos de contratação admitidos no diálogo competitivo: (i) obras; (ii) serviços; ou (iii) compras OU sobre ser restrita nos casos em que a Administração verifique a necessidade de definir e identificar os meios e as alternativas que possam satisfazer suas necessidades. 
 Conceito 2 – Mencionou de forma parcialmente correta sobre objetos de contratação admitidos no diálogo competitivo: (i) obras; (ii) serviços; ou (iii) compras E sobre ser restrita nos casos em que a Administração verifique a necessidade de definir e identificar os meios e as alternativas que possam satisfazer suas necessidades. 
 Conceito 3 – Mencionou corretamente sobre objetos de contratação admitidos no diálogo competitivo: (i) obras; (ii) serviços; ou (iii) compras E sobre ser restrita nos casos em que a Administração verifique a necessidade de definir e identificar os meios e as alternativas que possam satisfazer suas necessidades. 
-
+ 
 QUESITO 2.6 
 Conceito 0 – Não respondeu ou respondeu de forma totalmente incorreta. 
 Conceito 1 – Respondeu corretamente que o diálogo competitivo é restrito a contratação de objetos que envolvam determinadas condições, mencionando apenas uma das seguintes condições: (i) inovação tecnológica; (ii) inovação técnica; (iii) impossibilidade de o órgão ou entidade ter sua necessidade satisfeita sem a adaptação de soluções disponíveis no mercado; (iv) impossibilidade de as especificações técnicas serem definidas com precisão suficiente pela administração pública. 
 Conceito 2 – Respondeu corretamente que o diálogo competitivo é restrito a contratação de objetos que envolvam determinadas condições, mencionando apenas duas das condições citadas. 
 Conceito 3 – Respondeu corretamente que o diálogo competitivo é restrito a contratação de objetos que envolvam determinadas condições, mencionando apenas três das condições citadas. 
 Conceito 4 – Respondeu corretamente que o diálogo competitivo é restrito a contratação de objetos que envolvam determinadas condições, mencionando as quatro condições citadas. 
-
+ 
 QUESITO 2.7 
 Conceito 0 – Não respondeu ou respondeu de forma totalmente incorreta. 
 Conceito 1 – Apenas definiu corretamente um dos critérios de julgamento. 
@@ -1085,7 +1177,7 @@ Notas inicialmente recebidas após a avaliação da banca examinadora exemplo 4 
 
 Quesitos Avaliados 	Faixa de valor 	Nota
 1 Apresentação (legibilidade, respeito às margens e indicação de parágrafos) e estrutura textual (organização das ideias em texto estruturado) 	0,00 a 3,50 	3,50
-2 Desenvolvimento do tema		
+2 Desenvolvimento do tema	 	 
 2.1 Possibilidade de contratação direta (inexigibilidade) 	0,00 a 10,00 	0,00
 2.2 Possibilidade de contratação direta (dispensa) 	0,00 a 10,00 	1,25
 2.3 Hipóteses em que a legislação permite que a licitação seja restrita a bens e serviços com tecnologia desenvolvida no Brasil 	0,00 a 10,00 	5,00
@@ -1098,68 +1190,68 @@ ________________________________________
 Recurso persuasivo-argumentativo exemplo 4 = 
 
 2.1 Possibilidade de contratação direta (inexigibilidade)
-Respeitosamente, solicito majoração da nota atual (0,00) para 5,00 pontos (Conceito 2), diante dos fundamentos apresentados a seguir.
-O presente quesito de avaliação atribui 5,00 pontos à resposta que se coadune com o Conceito 2, que requer “Respondeu corretamente ser cabível a contratação direta… nmas não desenvolveu a resposta…”. 
-Entendo que minha produção textual deve ser enquadrada no Conceito acima.
-Note que, nas linhas 1-4, enquadro o caso em questão como “credenciamento” com base na Lei nº 14.133/2021 e discorro de forma clara que é “cabível a contratação direta, considerando que é uma das possibilidades de contratação por inexigibilidade de licitação”.
-Tal definição é exposição similar aos conceitos trazidos no gabarito oficial que disserta “De acordo com… Lei n.º 14.133/2021, a contratação…por meio de credenciamento é hipótese de inexigibilidade de licitação.”.
-Veja que na minha definição utilizo, inclusive, os mesmos termos da Banca, como “Lei n.º 14.133/2021”, “credenciamento” e “inexigibilidade de licitação”.
-Dessa forma, não consigo entender como a minha produção textual não foi considerada condizente com o espelho de correção do Conceito 2, haja vista a demonstração na minha escrita da “hipótese de contratação direta”.
-Ante o exposto, solicito a atribuição da nota 5,00 (Conceito 2) ao meu texto no presente aspecto, por ser pontuação que mais se compatibiliza com o que foi exposto.
-Porém, caso entenda que minha exposição não foi fundamentada tal qual o padrão, que ocorra enquadramento do meu texto no “Conceito 1 - Respondeu corretamente ser cabível a contratação direta, no entanto, não fundamentou sua resposta”, com a majoração da nota atual (0,00) para 2,50 pontos.
+	Respeitosamente, solicito majoração da nota atual (0,00) para 5,00 pontos (Conceito 2), diante dos fundamentos apresentados a seguir.
+	O presente quesito de avaliação atribui 5,00 pontos à resposta que se coadune com o Conceito 2, que requer “Respondeu corretamente ser cabível a contratação direta… nmas não desenvolveu a resposta…”. 
+	Entendo que minha produção textual deve ser enquadrada no Conceito acima.
+	Note que, nas linhas 1-4, enquadro o caso em questão como “credenciamento” com base na Lei nº 14.133/2021 e discorro de forma clara que é “cabível a contratação direta, considerando que é uma das possibilidades de contratação por inexigibilidade de licitação”.
+	Tal definição é exposição similar aos conceitos trazidos no gabarito oficial que disserta “De acordo com… Lei n.º 14.133/2021, a contratação…por meio de credenciamento é hipótese de inexigibilidade de licitação.”.
+	Veja que na minha definição utilizo, inclusive, os mesmos termos da Banca, como “Lei n.º 14.133/2021”, “credenciamento” e “inexigibilidade de licitação”.
+	Dessa forma, não consigo entender como a minha produção textual não foi considerada condizente com o espelho de correção do Conceito 2, haja vista a demonstração na minha escrita da “hipótese de contratação direta”.
+	Ante o exposto, solicito a atribuição da nota 5,00 (Conceito 2) ao meu texto no presente aspecto, por ser pontuação que mais se compatibiliza com o que foi exposto.
+	Porém, caso entenda que minha exposição não foi fundamentada tal qual o padrão, que ocorra enquadramento do meu texto no “Conceito 1 - Respondeu corretamente ser cabível a contratação direta, no entanto, não fundamentou sua resposta”, com a majoração da nota atual (0,00) para 2,50 pontos.
 2.2 Possibilidade de contratação direta (dispensa)
-Foi-me atribuída pontuação 1,25 (Conceito Intermediário entre 0 e 1), nota injusta e que deve ser majorada ante as razões a seguir. 
-Inicialmente, a nota atribuída pela banca se enquadrou no Conceito Intermediário entre os conceitos 0 (0,00) e 1 (2,50). Isso demonstra que, conforme regra de correção aplicada, no qual temos atribuição de nota por dois corretores, um destes atribuiu a nota de 2,50 pontos (conceito 1).
-Dessa forma, a própria banca em correção já reconheceu que a minha produção textual já cumpriu todos os quesitos do conceito 1 e merece, portanto, a devida majoração para 2,50 pontos.
-O conceito 1 de avaliação do presente quesito atribui 2,50 pontos ao texto que responda “corretamente ser admissível a contratação direta…”, o que apresentei adequadamente.
-Note que afirmo ser o caso em questão hipótese de “contratação direta” (linha 12), o que se coaduna claramente com o espelho de correção “admissível a contratação direta”.
-Expliquei ainda, no caso de dispensa “não é necessário que a contratada seja empresa brasileira de pequeno porte” (linhas 17-18), ideia que vai ao encontro do estabelecido no padrão de resposta “Lei não prevê a necessidade de a empresa participante comprovar ser empresa… de pequeno porte”.
-Fica claro que respondi satisfatoriamente ser cabível a “contratação direta” (linha 12) de forma condizente com quesito de pontuação do Conceito 1, razão pela qual solicito majoração da nota atual (1,25 - Conceito Intermediário) para 2,50 (Conceito 1), por questão de justiça com a minha produção textual.
+	Foi-me atribuída pontuação 1,25 (Conceito Intermediário entre 0 e 1), nota injusta e que deve ser majorada ante as razões a seguir. 
+	Inicialmente, a nota atribuída pela banca se enquadrou no Conceito Intermediário entre os conceitos 0 (0,00) e 1 (2,50). Isso demonstra que, conforme regra de correção aplicada, no qual temos atribuição de nota por dois corretores, um destes atribuiu a nota de 2,50 pontos (conceito 1).
+	Dessa forma, a própria banca em correção já reconheceu que a minha produção textual já cumpriu todos os quesitos do conceito 1 e merece, portanto, a devida majoração para 2,50 pontos.
+	O conceito 1 de avaliação do presente quesito atribui 2,50 pontos ao texto que responda “corretamente ser admissível a contratação direta…”, o que apresentei adequadamente.
+	Note que afirmo ser o caso em questão hipótese de “contratação direta” (linha 12), o que se coaduna claramente com o espelho de correção “admissível a contratação direta”.
+	Expliquei ainda, no caso de dispensa “não é necessário que a contratada seja empresa brasileira de pequeno porte” (linhas 17-18), ideia que vai ao encontro do estabelecido no padrão de resposta “Lei não prevê a necessidade de a empresa participante comprovar ser empresa… de pequeno porte”.
+	Fica claro que respondi satisfatoriamente ser cabível a “contratação direta” (linha 12) de forma condizente com quesito de pontuação do Conceito 1, razão pela qual solicito majoração da nota atual (1,25 - Conceito Intermediário) para 2,50 (Conceito 1), por questão de justiça com a minha produção textual.
 2.3 Hipóteses em que a legislação permite que a licitação seja restrita a bens e serviços com tecnologia desenvolvida no Brasil
-Respeitosamente, solicito majoração da nota atual (5,00) para 10,00 pontos (Conceito 2 e nota máxima), diante dos fundamentos apresentados a seguir.
-O Conceito 2 de pontuação do presente quesito avaliador solicitou apresentação de resposta pela admissibilidade da “licitação ser restrita a bens e serviços com tecnologia desenvolvida no país nas contratações destinadas à implantação, à manutenção e ao aperfeiçoamento dos sistemas de tecnologia de informação e comunicação” com fundamentação “suficiente e correta” (espelho), o atendi claramente na minha produção textual.
-É notável que no primeiro período do terceiro parágrafo da minha dissertação (linhas 20-21) exponho que “A legislação permite que a licitação seja restrita a bens e serviços com tecnologia desenvolvida no Brasil”, o que se compatibiliza com o padrão “A licitação pode ser restrita a bens e serviços com tecnologia desenvolvida no país”.
-Ademais, disserto que tal permissão ocorre na “hipótese de a contratada utilizar em sua linha de fabricação a metodologia de processo produtivo básico…” (linhas 21-23). Perceba que essa situação está em consonância com a hipótese descrita no gabarito “contratações destinadas à implantação, à manutenção e ao aperfeiçoamento dos sistemas… considerados estratégicos…”.
-Ora ao apontar a utilização em licitações que envolvam o “processo produtivo básico” (linha 23) procurei exemplificar “situação estratégica” (padrão) para o ente público, no caso em questão, o Poder Executivo Federal.
-Veja que fundamento o entendimento na “legislação” (linha 21), que é justamente a “Lei nº 10.176, de 11 de janeiro de 2001” (padrão) de regência.
-Dessa maneira há que se falar que a fundamentação da minha ideia foi “suficiente e satisfatória”, haja vista que a resposta e a fundamentação são compatíveis diretamente com o padrão de resposta.
-Ante o exposto, solicito majoração da nota atual (5,00 pontos) para 10,00 pontos (nota máxima e Conceito 2) por questão de justiça com o que foi apresentado na minha produção textual.
+	Respeitosamente, solicito majoração da nota atual (5,00) para 10,00 pontos (Conceito 2 e nota máxima), diante dos fundamentos apresentados a seguir.
+	O Conceito 2 de pontuação do presente quesito avaliador solicitou apresentação de resposta pela admissibilidade da “licitação ser restrita a bens e serviços com tecnologia desenvolvida no país nas contratações destinadas à implantação, à manutenção e ao aperfeiçoamento dos sistemas de tecnologia de informação e comunicação” com fundamentação “suficiente e correta” (espelho), o atendi claramente na minha produção textual.
+	É notável que no primeiro período do terceiro parágrafo da minha dissertação (linhas 20-21) exponho que “A legislação permite que a licitação seja restrita a bens e serviços com tecnologia desenvolvida no Brasil”, o que se compatibiliza com o padrão “A licitação pode ser restrita a bens e serviços com tecnologia desenvolvida no país”.
+	Ademais, disserto que tal permissão ocorre na “hipótese de a contratada utilizar em sua linha de fabricação a metodologia de processo produtivo básico…” (linhas 21-23). Perceba que essa situação está em consonância com a hipótese descrita no gabarito “contratações destinadas à implantação, à manutenção e ao aperfeiçoamento dos sistemas… considerados estratégicos…”.
+	Ora ao apontar a utilização em licitações que envolvam o “processo produtivo básico” (linha 23) procurei exemplificar “situação estratégica” (padrão) para o ente público, no caso em questão, o Poder Executivo Federal.
+	Veja que fundamento o entendimento na “legislação” (linha 21), que é justamente a “Lei nº 10.176, de 11 de janeiro de 2001” (padrão) de regência.
+	Dessa maneira há que se falar que a fundamentação da minha ideia foi “suficiente e satisfatória”, haja vista que a resposta e a fundamentação são compatíveis diretamente com o padrão de resposta.
+	Ante o exposto, solicito majoração da nota atual (5,00 pontos) para 10,00 pontos (nota máxima e Conceito 2) por questão de justiça com o que foi apresentado na minha produção textual.
 2.5 Objetos de contratação admitidos no diálogo competitivo
-Foi-me atribuída pontuação 4,75 (Conceito Intermediário entre 1 e 2), nota injusta e que deve ser majorada ante as razões a seguir. 
-Inicialmente, a nota atribuída pela banca se enquadrou no Conceito Intermediário entre os conceitos 1 (3,17) e 2 (6,33). Isso demonstra que, conforme regra de correção aplicada, no qual temos atribuição de nota por dois corretores, um destes atribuiu a nota de 6,33 pontos (conceito 2).
-Dessa forma, a própria banca em correção já reconheceu que a minha produção textual já cumpriu todos os quesitos do conceito 2 e merece, portanto, a devida majoração para 6,33 pontos.
-Não obstante, é necessário frisar que o Conceito 3 (nota máxima) de pontuação do presente quesito avaliador apresentou padrão de resposta que admitiu mais de uma resposta correta ante o emprego da conjunção indicadora da alternatividade “ou” em “objetos de contratação admitidos no diálogo competitivo: (i) obras; (ii) serviços; ou (iii) compras”.
-Pela leitura do padrão me foi permitido discorrer sobre apenas um dos três elementos (“(i) obras; (ii) serviços; ou (iii) compras”), o que fiz devidamente.
-Note que me refiro aos três elementos do gabarito ao falar de “situações” (linha 35), termo que utilizei para abranger as “situações de obras, serviços e compras” (padrão resposta).
-Ademais, informo que a hipótese de Diálogo Competitivo é “restrita nos casos em que a Administração verifique a necessidade de definir e identificar os meios e as alternativas que possam satisfazer suas necessidades” (padrão) ao expor que “Essa modalidade deve ser adotada em situações nas quais a administração reconhece um problema ou uma necessidade que precisa de intervenção, mas não é capaz de identificar a solução adequada para resolver a situação” (linhas 35-38).
-Veja que a ideia da “necessidade de definir e identificar os meios e as alternativas que possam satisfazer às necessidade administrativas” (padrão) é por mim abordada quando discorro sobre a “necessidade… de intervenção, sem capacidade de identificar a solução adequada para resolver a situação” da Administração Pública (linhas 36-38).
-Logo, resta evidente que mencionei corretamente os “objetos de contratação admitidos no diálogo competitivo” e “discorri sobre ser restrita (a modalidade diálogo competitivo) aos casos em que a Administração verifique a necessidade de definir e identificar os meios e as alternativas que possam satisfazer suas necessidades”, razão pela qual solicito atribuição da nota máxima (9,50 pontos) do Conceito 3.
-Porém, caso entenda que minha exposição foi “parcialmente completa”, solicito majoração da nota atual (4,75 - Conceito Intermediário) para 6,33 pontos (Conceito 2), conforme já foi atribuído por um dos corretores originários.
+	Foi-me atribuída pontuação 4,75 (Conceito Intermediário entre 1 e 2), nota injusta e que deve ser majorada ante as razões a seguir. 
+	Inicialmente, a nota atribuída pela banca se enquadrou no Conceito Intermediário entre os conceitos 1 (3,17) e 2 (6,33). Isso demonstra que, conforme regra de correção aplicada, no qual temos atribuição de nota por dois corretores, um destes atribuiu a nota de 6,33 pontos (conceito 2).
+	Dessa forma, a própria banca em correção já reconheceu que a minha produção textual já cumpriu todos os quesitos do conceito 2 e merece, portanto, a devida majoração para 6,33 pontos.
+	Não obstante, é necessário frisar que o Conceito 3 (nota máxima) de pontuação do presente quesito avaliador apresentou padrão de resposta que admitiu mais de uma resposta correta ante o emprego da conjunção indicadora da alternatividade “ou” em “objetos de contratação admitidos no diálogo competitivo: (i) obras; (ii) serviços; ou (iii) compras”.
+	Pela leitura do padrão me foi permitido discorrer sobre apenas um dos três elementos (“(i) obras; (ii) serviços; ou (iii) compras”), o que fiz devidamente.
+	Note que me refiro aos três elementos do gabarito ao falar de “situações” (linha 35), termo que utilizei para abranger as “situações de obras, serviços e compras” (padrão resposta).
+	Ademais, informo que a hipótese de Diálogo Competitivo é “restrita nos casos em que a Administração verifique a necessidade de definir e identificar os meios e as alternativas que possam satisfazer suas necessidades” (padrão) ao expor que “Essa modalidade deve ser adotada em situações nas quais a administração reconhece um problema ou uma necessidade que precisa de intervenção, mas não é capaz de identificar a solução adequada para resolver a situação” (linhas 35-38).
+	Veja que a ideia da “necessidade de definir e identificar os meios e as alternativas que possam satisfazer às necessidade administrativas” (padrão) é por mim abordada quando discorro sobre a “necessidade… de intervenção, sem capacidade de identificar a solução adequada para resolver a situação” da Administração Pública (linhas 36-38).
+	Logo, resta evidente que mencionei corretamente os “objetos de contratação admitidos no diálogo competitivo” e “discorri sobre ser restrita (a modalidade diálogo competitivo) aos casos em que a Administração verifique a necessidade de definir e identificar os meios e as alternativas que possam satisfazer suas necessidades”, razão pela qual solicito atribuição da nota máxima (9,50 pontos) do Conceito 3.
+	Porém, caso entenda que minha exposição foi “parcialmente completa”, solicito majoração da nota atual (4,75 - Conceito Intermediário) para 6,33 pontos (Conceito 2), conforme já foi atribuído por um dos corretores originários.
 
 2.6 Restrição do diálogo competitivo à contratação de objetos que envolvam determinadas condições
-Foi-me atribuída pontuação 5,63 (Conceito Intermediário entre 2 e 3), nota injusta e que deve ser majorada ante as razões a seguir. 
-Inicialmente, a nota atribuída pela banca se enquadrou no Conceito Intermediário entre os conceitos 2 (4,50) e 3 (6,75). Isso demonstra que, conforme regra de correção aplicada, no qual temos atribuição de nota por dois corretores, um destes atribuiu a nota de 6,75 pontos (conceito 3).
-Dessa forma, a própria banca em correção já reconheceu que a minha produção textual já cumpriu todos os quesitos do conceito 3 e merece, portanto, a devida majoração para 6,75 pontos.
-O presente quesito de avaliação apontou em sua resposta padrão que o “diálogo competitivo é restrito à contratação de objetos que envolvam determinadas condições” e mencionou “quatro condições” das quais tratei diretamente de três, o que me torna merecedor de enquadramento no Conceito 3 de pontuação.
-Veja que:
+	Foi-me atribuída pontuação 5,63 (Conceito Intermediário entre 2 e 3), nota injusta e que deve ser majorada ante as razões a seguir. 
+	Inicialmente, a nota atribuída pela banca se enquadrou no Conceito Intermediário entre os conceitos 2 (4,50) e 3 (6,75). Isso demonstra que, conforme regra de correção aplicada, no qual temos atribuição de nota por dois corretores, um destes atribuiu a nota de 6,75 pontos (conceito 3).
+	Dessa forma, a própria banca em correção já reconheceu que a minha produção textual já cumpriu todos os quesitos do conceito 3 e merece, portanto, a devida majoração para 6,75 pontos.
+	O presente quesito de avaliação apontou em sua resposta padrão que o “diálogo competitivo é restrito à contratação de objetos que envolvam determinadas condições” e mencionou “quatro condições” das quais tratei diretamente de três, o que me torna merecedor de enquadramento no Conceito 3 de pontuação.
+	Veja que:
 informo, nas linhas 41-42, que “para que se utilize o diálogo competitivo, o objeto da contratação deve atender algumas condições”, o que atende claramente ao espelho “respondeu corretamente que o diálogo competitivo é restrito a contratação de objetos que envolvam determinadas condições”;
 aponto como primeira condição “ser uma inovação técnica” (linhas 42-43), o que se coaduna com “(ii) inovação técnica” (padrão);
 aponto como segunda condição “ser uma inovação… tecnológica” (linhas 42-43), o que se coaduna com “(i) inovação tecnológica” (padrão);
 aponto como terceira condição “a Administração não ser capaz de especificar o objeto de forma clara e objetiva” (linhas 44-45), o que se coaduna com “iv) impossibilidade de as especificações técnicas serem definidas com precisão suficiente pela administração pública” (padrão);
-Resta claro que tratei devidamente do conceito requerido e de três condições para procedência da modalidade licitatória pela administração.
-Logo, mereço enquadramento no Conceito 3 “Respondeu corretamente que o diálogo competitivo é restrito à contratação de objetos que envolvam determinadas condições, mencionando… três das condições citadas”, com atribuição da nota 6,75 pontos, por questão de justiça.
+	Resta claro que tratei devidamente do conceito requerido e de três condições para procedência da modalidade licitatória pela administração.
+	Logo, mereço enquadramento no Conceito 3 “Respondeu corretamente que o diálogo competitivo é restrito à contratação de objetos que envolvam determinadas condições, mencionando… três das condições citadas”, com atribuição da nota 6,75 pontos, por questão de justiça.
 2.7 Diferença entre menor preço e maior retorno econômico
-Foi-me atribuída pontuação 4,50 (Conceito Intermediário entre 1 e 2), nota injusta e que deve ser majorada ante as razões a seguir. 
-Inicialmente, a nota atribuída pela banca se enquadrou no Conceito Intermediário entre os conceitos 1 (3,00) e 2 (6,00). Isso demonstra que, conforme regra de correção aplicada, no qual temos atribuição de nota por dois corretores, um destes atribuiu a nota de 6,00 pontos (conceito 2).
-Dessa forma, a própria banca em correção já reconheceu que a minha produção textual já cumpriu todos os quesitos do conceito 2 e merece, portanto, a devida majoração para 6,00 pontos.
-O presente quesito de avaliação solicitou para atribuição de nota máxima (Conceito 3) a “diferenciação correta entre os critérios de julgamento menor preço e maior retorno econômico”, o que fiz devidamente e tal qual o padrão resposta.
-Veja que, ao tratar do critério menor preço, dissertei que neste “é vencedora da licitação a empresa que, após a fase de lances, ofertar o menor preço para o fornecimento de bem ou para a prestação de serviço para a administração pública” (linhas 48-50).
-Ao mencionar a “oferta do menor preço para o fornecimento de bem ou para a prestação de serviço para a administração pública” (linhas 49-50) trato diretamente do “menor dispêndio para a administração pública” (padrão). 
-Ora a oferta de um preço menor para prestação do serviço ou fornecimento de bens pela licitante gera como consequência um processo menos dispendioso para o ente contratante.
-Ademais, ao dissertar sobre o critério de julgamento de maior retorno econômico, informe que este “tem por objetivo selecionar uma empresa que apresente uma solução… que gere economia para a Administração Pública” (linhas 52-54), o que se coaduna com o padrão que afirma haver “maior economia para a administração pública”,
-Ainda sobre o critério de maior retorno econômico menciono que a “remuneração da contratada irá corresponder a um percentual da economia gerada” (linhas 54-55), exposição quase que literal do gabarito que afirma que a “remuneração deverá ser fixada… de forma proporcional à economia efetivamente obtida…”.
-Resta claro que apresentei diferenciação correta e compatível com o gabarito sobre os critérios de julgamento em questão, o que me faz merecer enquadramento no Conceito 3, com a devida atribuição da nota máxima, qual seja 9,00 pontos.
-Porém, entendendo que minha exposição foi “parcialmente correta”, solicito majoração da nota atual (4,50 - Conceito Intermediário) para 6,00 pontos (Conceito 2), conforme já foi atribuído por um dos corretores originários.
+	Foi-me atribuída pontuação 4,50 (Conceito Intermediário entre 1 e 2), nota injusta e que deve ser majorada ante as razões a seguir. 
+	Inicialmente, a nota atribuída pela banca se enquadrou no Conceito Intermediário entre os conceitos 1 (3,00) e 2 (6,00). Isso demonstra que, conforme regra de correção aplicada, no qual temos atribuição de nota por dois corretores, um destes atribuiu a nota de 6,00 pontos (conceito 2).
+	Dessa forma, a própria banca em correção já reconheceu que a minha produção textual já cumpriu todos os quesitos do conceito 2 e merece, portanto, a devida majoração para 6,00 pontos.
+	O presente quesito de avaliação solicitou para atribuição de nota máxima (Conceito 3) a “diferenciação correta entre os critérios de julgamento menor preço e maior retorno econômico”, o que fiz devidamente e tal qual o padrão resposta.
+	Veja que, ao tratar do critério menor preço, dissertei que neste “é vencedora da licitação a empresa que, após a fase de lances, ofertar o menor preço para o fornecimento de bem ou para a prestação de serviço para a administração pública” (linhas 48-50).
+	Ao mencionar a “oferta do menor preço para o fornecimento de bem ou para a prestação de serviço para a administração pública” (linhas 49-50) trato diretamente do “menor dispêndio para a administração pública” (padrão). 
+	Ora a oferta de um preço menor para prestação do serviço ou fornecimento de bens pela licitante gera como consequência um processo menos dispendioso para o ente contratante.
+	Ademais, ao dissertar sobre o critério de julgamento de maior retorno econômico, informe que este “tem por objetivo selecionar uma empresa que apresente uma solução… que gere economia para a Administração Pública” (linhas 52-54), o que se coaduna com o padrão que afirma haver “maior economia para a administração pública”,
+	Ainda sobre o critério de maior retorno econômico menciono que a “remuneração da contratada irá corresponder a um percentual da economia gerada” (linhas 54-55), exposição quase que literal do gabarito que afirma que a “remuneração deverá ser fixada… de forma proporcional à economia efetivamente obtida…”.
+	Resta claro que apresentei diferenciação correta e compatível com o gabarito sobre os critérios de julgamento em questão, o que me faz merecer enquadramento no Conceito 3, com a devida atribuição da nota máxima, qual seja 9,00 pontos.
+	Porém, entendendo que minha exposição foi “parcialmente correta”, solicito majoração da nota atual (4,50 - Conceito Intermediário) para 6,00 pontos (Conceito 2), conforme já foi atribuído por um dos corretores originários.
 
 
 
@@ -1180,7 +1272,7 @@ Considerando a situação hipotética apresentada, os controles previstos na nor
 
 Quesitos Avaliados 	Faixa de valor 
 1 Apresentação (legibilidade, respeito às margens e indicação de parágrafos) e estrutura textual (organização das ideias em texto estruturado) 	0,00 a 3,50 
-2 Desenvolvimento do tema	
+2 Desenvolvimento do tema	 
 2.1 Integração da gestão de identidades ao sistema de gestão de segurança da informação (SGSI) da organização 	0,00 a 26,50 
 2.2 Medidas de segurança a serem adotadas durante o recrutamento e a contratação de novos colaboradores 	0,00 a 22,00 
 2.3 Medidas de segurança física dos espaços onde os dados são armazenados e processados na organização 	0,00 a 18,00 
@@ -1189,146 +1281,186 @@ ________________________________________
 
 Texto do candidato 5 =
 
-SITUAÇÃO PROBLEMA
-Um controle de acesso centralizado aos sistemas e recursos da empresa é de vital importância. Seria possível utilizar um LDAP por exemplo. Deve-se utilizar a política de menor privilégio possível, isto é, o usuário não deve possuir acesso ou privilégios para além do que suas atribuições demandam. Todos os sistemas deverão ser integrados a esse controle centralizado. 
-Outras políticas importantes como a de atualização periódica de senhas, utilização de senhas Fortes, acesso aos dados sensíveis devem ser auditados, ações críticas e que envolvam compartilhamento de dados devem possuir mecanismo de confirmação ou dupla checagem, utilização de autenticação de 2 fatores e/ou VPN’s para acessos externos aos sistemas da empresa e aplicação de governança nos dados, são extremamente importantes e reduzem a incidência de situações de vazamentos, acessos não autorizados, monitoramento de tráfego de rede, entre outros.
-A comunicação criptografada entre as trocas de informações e políticas de controle nos envios de comunicação sigilosas através de e-mails também são recomendações importantes, por exemplo o envio de documentos sigiloso poderá solicitaram uma senha para ver o seu conteúdo.
-Para os processos de recrutamento e contratação é importante deixar claro e conscientizar sobre o aspecto de segurança da informação e de sua importância. Desde o primeiro momento é importante fornecer treinamento contínuos sobre boas práticas de segurança da informação, este treinamento deve ser contínuo, por conta de reciclagens de conhecimento e para os funcionários antigos também. A depender dos casos a checagem de antecedentes para minimizar práticas de espionagem industrial pode ser necessária. Após a contratação é possível aplicar contratos de confidencialidade para inibir descuidos ou vazamentos de má fé. Restringir o acesso aos dados sensíveis por um período de “hibernação” pode ser uma prática usada até que o novo colaborador esteja treinado. 
-Para as medidas de segurança física tem se as práticas de autenticação biométrica, controles de acesso aos equipamentos físicos, políticas de backup com criptografia, ambiente com vídeo monitoramento.
-Acessos às salas de equipamentos que possuam dados sensíveis podem contar também com acesso de duas chaves, Isto é, é necessário que 2 pessoas autorizem o acesso à sala através de diferentes meios de autenticação.
-Por todos os controles e políticas faz se necessário executar revisões, treinamentos, reciclagens, atualizações dos sistemas de segurança é aplicação de ambiente de treinamento, bem como o gerenciamento de crises visando minimizar impactos. 
+Linha	Texto da linha
+ 1	Um controle de acesso centralizado aos sistemas e recursos da 
+ 2	empresa é de vital importância. Seria possível utilizar um LDAP 
+ 3	por exemplo. Deve-se utilizar a política de menor privilégio 
+ 4	possível, isto é, o usuário não deve possuir acesso ou privilégios para
+ 5	além do que suas atribuições demandam. Todos os sistemas deve-
+ 6	rão ser integrados a esse controle centralizado. 
+ 7	Outras políticas importantes como a de atualização periódica 
+ 8	de senhas, utilização de senhas Fortes, acesso aos dados sensíveis de-
+ 9	vem ser auditados, ações críticas e que envolvam compartilhamento 
+10	de dados devem possuir mecanismo de confirmação ou dupla che-
+11	cagem, utilização de autenticação de 2 fatores e/ou VPN’s para
+12	acessos externos aos sistemas da empresa e aplicação de governança
+13	nos dados, são extremamente importantes e reduzem a incidência 
+14	de situações de vazamentos, acessos não autorizados, monitoramen-
+15	to de tráfego de rede, entre outros.
+16	A comunicação criptografada entre as trocas de informações e 
+17	políticas de controle nos envios de comunicação sigilosas através de 
+18	e-mails também são recomendações importantes, por exemplo o 
+19	envio de documentos sigiloso poderá solicitaram uma senha para 
+20	ver o seu conteúdo.
+21	Para os processos de recrutamento e contratação é importante dei-
+22	xar claro e conscientizar sobre o aspecto de segurança da informa-
+23	ção e de sua importância. Desde o primeiro momento é importante
+24	fornecer treinamento contínuos sobre boas práticas de segurança da
+25	informação, este treinamento deve ser contínuo, por conta de recicla-
+26	gens de conhecimento e para os funcionários antigos também. A
+27	depender dos casos a checagem de antecedentes para minimizar prá-
+28	ticas de espionagem industrial pode ser necessária. Após a 
+29	contratação é possível aplicar contratos de confidencialidade para
+30	inibir descuidos ou vazamentos de má fé. Restringir o acesso 
+31	aos dados sensíveis por um período de “hibernação” pode ser uma 
+32	prática usada até que o novo colaborador esteja treinado.
+33	Para as medidas de segurança física têm-se as práticas 
+34	de autenticação biométrica, controles de acesso aos equipa-
+35	mentos físicos, políticas de backup com criptografia, ambiente 
+36	com vídeo monitoramento.
+37	Acessos às salas de equipamentos que possuam dados 
+38	sensíveis podem contar também com acesso de duas chaves, 
+39	isto é, é necessário que 2 pessoas autorizem o acesso à 
+40	sala através de diferentes meios de autenticação.
+41	Por todos os controles e políticas faz se necessário executar 
+42	revisões, treinamentos, reciclagens, atualizações dos sistemas de 
+43	segurança é aplicação de ambiente de treinamento, bem como 
+44	o gerenciamento de crises visando minimizar impactos. 
+45	
+
+
 ________________________________________
 
 Gabarito Oficial exemplo 5 = 
 
 Texto desejado - PADRÃO DE RESPOSTA DEFINITIVO
-Integrar a gestão de identidades ao sistema de gestão de segurança da informação (SGSI) de uma organização é um fator crítico de sucesso para garantir que as pessoas autorizadas tenham acesso a informações confidenciais e críticas. Inicialmente, será necessário estabelecer políticas claras de controle de acesso, que definam quem pode acessar quais dados e em que circunstâncias. A implementação de um sistema de gestão de identidade deve começar com a definição de responsabilidades específicas para a administração de identidades e credenciais e garantir que todos os usuários sejam verificados antes de receber acessos. Os processos de autenticação devem ser robustos e, se possível, utilizar mecanismo de autenticação multifator para aumentar a segurança. A gestão de identidades deve ser diretamente integrada ao SGSI, com procedimentos regulares de revisão de acessos para assegurar que os direitos de acesso ainda são apropriados às funções e necessidades atuais do usuário. Além disso, é fundamental que todos os sistemas de controle de acesso registrem logs detalhados de atividades, que devem ser monitorados para detectar qualquer tentativa de acesso não autorizado ou eventos anormais. Essa integração reforça a segurança dos dados e alinha a gestão de identidades com as metas de segurança da informação da organização, conforme definido pela ISO/IEC 27001. 
-
-Durante o recrutamento e a contratação de novos colaboradores em uma organização pública do governo federal, é importante adotar medidas de segurança específicas para proteger a integridade e a confidencialidade das informações. O processo deve começar com a verificação de antecedentes dos(as) candidatos(as) para garantir que eles(as) não tenham histórico de atividades ilícitas ou que comprometam a segurança. Além disso, é importante que os termos e condições de emprego incluam compromissos explícitos relacionados à segurança da informação, que devem ser acordados antes de o trabalho efetivamente começar. A organização também deve implementar programas de conscientização e treinamento em segurança da informação, destinados a novos colaboradores, para garantir que eles entendam suas responsabilidades e os procedimentos de segurança desde o primeiro dia. Esses programas devem incluir informações sobre como manusear dados sensíveis e a importância de seguir as políticas de segurança da organização. Essas práticas protegem a organização contra riscos internos e garantem que novos colaboradores estejam imediatamente alinhados à cultura de segurança da informação da organização. 
-
-Fortalecer a segurança física dos espaços onde os dados são armazenados e processados em uma organização pública é fundamental para a proteção contra acessos não autorizados, desastres naturais e outros riscos físicos. É importante estabelecer áreas de segurança controladas, onde o acesso seja restrito apenas a pessoal autorizado. Isso inclui a utilização de medidas de segurança como sistemas de controle de acesso, monitoramento por câmeras de segurança e alarmes. Além disso, a organização deve implementar proteções contra ameaças ambientais e desastres naturais, como inundações, incêndios e terremotos, através da instalação de detectores e sistemas de supressão adequados. A segurança dos equipamentos, também, deve ser garantida, assegurando-se que eles estejam adequadamente protegidos contra interferências e danos. Essas medidas fortalecem a proteção dos dados e asseguram a continuidade dos serviços críticos da organização, minimizando o risco de interrupções e perda de dados em situações adversas. 
-
-As informações a seguir constam na norma ABNT NBR ISO/IEC 27002 e, se utilizadas pelo(a) candidato(a), também devem ser consideradas corretas. 
+1	Integrar a gestão de identidades ao sistema de gestão de segurança da informação (SGSI) de uma organização é um fator crítico de sucesso para garantir que as pessoas autorizadas tenham acesso a informações confidenciais e críticas. Inicialmente, será necessário estabelecer políticas claras de controle de acesso, que definam quem pode acessar quais dados e em que circunstâncias. A implementação de um sistema de gestão de identidade deve começar com a definição de responsabilidades específicas para a administração de identidades e credenciais e garantir que todos os usuários sejam verificados antes de receber acessos. Os processos de autenticação devem ser robustos e, se possível, utilizar mecanismo de autenticação multifator para aumentar a segurança. A gestão de identidades deve ser diretamente integrada ao SGSI, com procedimentos regulares de revisão de acessos para assegurar que os direitos de acesso ainda são apropriados às funções e necessidades atuais do usuário. Além disso, é fundamental que todos os sistemas de controle de acesso registrem logs detalhados de atividades, que devem ser monitorados para detectar qualquer tentativa de acesso não autorizado ou eventos anormais. Essa integração reforça a segurança dos dados e alinha a gestão de identidades com as metas de segurança da informação da organização, conforme definido pela ISO/IEC 27001. 
+ 
+2	Durante o recrutamento e a contratação de novos colaboradores em uma organização pública do governo federal, é importante adotar medidas de segurança específicas para proteger a integridade e a confidencialidade das informações. O processo deve começar com a verificação de antecedentes dos(as) candidatos(as) para garantir que eles(as) não tenham histórico de atividades ilícitas ou que comprometam a segurança. Além disso, é importante que os termos e condições de emprego incluam compromissos explícitos relacionados à segurança da informação, que devem ser acordados antes de o trabalho efetivamente começar. A organização também deve implementar programas de conscientização e treinamento em segurança da informação, destinados a novos colaboradores, para garantir que eles entendam suas responsabilidades e os procedimentos de segurança desde o primeiro dia. Esses programas devem incluir informações sobre como manusear dados sensíveis e a importância de seguir as políticas de segurança da organização. Essas práticas protegem a organização contra riscos internos e garantem que novos colaboradores estejam imediatamente alinhados à cultura de segurança da informação da organização. 
+ 
+3	Fortalecer a segurança física dos espaços onde os dados são armazenados e processados em uma organização pública é fundamental para a proteção contra acessos não autorizados, desastres naturais e outros riscos físicos. É importante estabelecer áreas de segurança controladas, onde o acesso seja restrito apenas a pessoal autorizado. Isso inclui a utilização de medidas de segurança como sistemas de controle de acesso, monitoramento por câmeras de segurança e alarmes. Além disso, a organização deve implementar proteções contra ameaças ambientais e desastres naturais, como inundações, incêndios e terremotos, através da instalação de detectores e sistemas de supressão adequados. A segurança dos equipamentos, também, deve ser garantida, assegurando-se que eles estejam adequadamente protegidos contra interferências e danos. Essas medidas fortalecem a proteção dos dados e asseguram a continuidade dos serviços críticos da organização, minimizando o risco de interrupções e perda de dados em situações adversas. 
+ 
+ As informações a seguir constam na norma ABNT NBR ISO/IEC 27002 e, se utilizadas pelo(a) candidato(a), também devem ser consideradas corretas. 
 
 QUESITO 2.1 
 Controle A.9.1.1 - Política de controle de acesso 
 Convém que a política leve em consideração os seguintes itens:  
-requisitos de segurança de aplicações de negócios individuais;  
-política para disseminação e autorização da informação, por exemplo, o princípio “necessidade de conhecer” e níveis de segurança e a classificação das informações;  
-consistência entre os direitos de acesso e as políticas de classificação da informação de sistemas e redes; 
-legislação pertinente e qualquer obrigação contratual relativa à proteção de acesso para dados ou serviços;  
-gerenciamento de direitos de acesso em um ambiente distribuído e conectado à rede que reconhece todos os tipos de conexões disponíveis; 
-segregação de funções de controle de acesso, por exemplo, pedido de acesso, autorização de acesso, administração de acesso;  
-requisitos para autorização formal de pedidos de acesso;  
-requisitos para análise crítica periódica de direitos de acesso; 
-remoção de direitos de acesso; 
-arquivo dos registros de todos os eventos significantes, relativos ao uso e gerenciamento das identidades do usuário e da informação de autenticação secreta; e 
-regras para o acesso privilegiado. 
-
+a)	requisitos de segurança de aplicações de negócios individuais;  
+b)	política para disseminação e autorização da informação, por exemplo, o princípio “necessidade de conhecer” e níveis de segurança e a classificação das informações;  
+c)	consistência entre os direitos de acesso e as políticas de classificação da informação de sistemas e redes; 
+d)	legislação pertinente e qualquer obrigação contratual relativa à proteção de acesso para dados ou serviços;  
+e)	gerenciamento de direitos de acesso em um ambiente distribuído e conectado à rede que reconhece todos os tipos de conexões disponíveis; 
+f)	segregação de funções de controle de acesso, por exemplo, pedido de acesso, autorização de acesso, administração de acesso;  
+g)	requisitos para autorização formal de pedidos de acesso;  
+h)	requisitos para análise crítica periódica de direitos de acesso; 
+i)	remoção de direitos de acesso; 
+j)	arquivo dos registros de todos os eventos significantes, relativos ao uso e gerenciamento das identidades do usuário e da informação de autenticação secreta; e 
+k)	regras para o acesso privilegiado. 
+ 
 Controle A.9.4.2 - Gerenciamento de acesso privilegiado 
 Convém que o procedimento para entrada no sistema operacional seja configurado para minimizar a oportunidade de acessos não autorizados. Convém que o procedimento de entrada (log-on) revele o mínimo de informações sobre o sistema ou aplicação, de forma a evitar o fornecimento de informações desnecessárias a um usuário não autorizado. Convém que um bom procedimento de entrada no sistema (log-on):  
-não mostre identificadores de sistema ou de aplicação até que o processo tenha sido concluído com sucesso;  
-mostre um aviso geral informando que o computador seja acessado somente por usuários autorizados; 
-não forneça mensagens de ajuda durante o procedimento de entrada (log-on) que poderiam auxiliar um usuário não autorizado;  
-valide informações de entrada no sistema somente quando todos os dados de entrada estiverem completos. Caso ocorra uma condição de erro, o sistema não indique qual parte do dado de entrada está correta ou incorreta; e) proteja contra tentativas forçadas de entrada no sistema (log-on); 
-registre tentativas de acesso ao sistema, sem sucesso e bem-sucedida; 
-comunique um evento de segurança caso uma tentativa potencial ou uma violação bem-sucedida de entrada no sistema (logon) seja detectada; 
-mostre as seguintes informações quando o procedimento de entrada no sistema (log-on) finalizar com sucesso:  
-data e hora da última entrada no sistema (log-on) com sucesso; e 
-detalhes de qualquer tentativa sem sucesso de entrada no sistema (log-on) desde o último acesso com sucesso; i) não mostre a senha que está sendo informada;  
-não transmita senhas em texto claro pela rede;  
-encerre sessões inativas após um período definido de inatividade, especialmente em locais de alto risco, como locais públicos, ou áreas externas ao gerenciamento de segurança da organização ou quando do uso de dispositivos móveis; e 
-restrinja os tempos de conexão para fornecer segurança adicional nas aplicações de alto risco e para reduzir a janela de oportunidade para acesso não autorizado. 
-
+a)	não mostre identificadores de sistema ou de aplicação até que o processo tenha sido concluído com sucesso;  
+b)	mostre um aviso geral informando que o computador seja acessado somente por usuários autorizados; 
+c)	não forneça mensagens de ajuda durante o procedimento de entrada (log-on) que poderiam auxiliar um usuário não autorizado;  
+d)	valide informações de entrada no sistema somente quando todos os dados de entrada estiverem completos. Caso ocorra uma condição de erro, o sistema não indique qual parte do dado de entrada está correta ou incorreta; e) proteja contra tentativas forçadas de entrada no sistema (log-on); 
+f)	registre tentativas de acesso ao sistema, sem sucesso e bem-sucedida; 
+g)	comunique um evento de segurança caso uma tentativa potencial ou uma violação bem-sucedida de entrada no sistema (logon) seja detectada; 
+h)	mostre as seguintes informações quando o procedimento de entrada no sistema (log-on) finalizar com sucesso:  
+1)	data e hora da última entrada no sistema (log-on) com sucesso; e 
+2)	detalhes de qualquer tentativa sem sucesso de entrada no sistema (log-on) desde o último acesso com sucesso; i) não mostre a senha que está sendo informada;  
+j)	não transmita senhas em texto claro pela rede;  
+k)	encerre sessões inativas após um período definido de inatividade, especialmente em locais de alto risco, como locais públicos, ou áreas externas ao gerenciamento de segurança da organização ou quando do uso de dispositivos móveis; e 
+l)	restrinja os tempos de conexão para fornecer segurança adicional nas aplicações de alto risco e para reduzir a janela de oportunidade para acesso não autorizado. 
+ 
 Controle A.9.2.5 - Revisão de direitos de acesso do usuário 
 Convém que a análise crítica dos direitos de acesso considere as seguintes orientações:  
-os direitos de acesso de usuários sejam revisados em intervalos regulares e depois de quaisquer mudanças, como promoção, remanejamento ou encerramento do contrato;  
-os direitos de acesso de usuários sejam analisados criticamente e realocados quando movidos de um tipo de atividade para outra na mesma organização; 
-autorizações para direitos de acesso privilegiado especial sejam revisadas em intervalos mais frequentes; 
-as alocações de privilégios sejam verificadas em intervalo de tempo regular para garantir que privilégios não autorizados não foram obtidos; e 
-as modificações para contas privilegiadas sejam registradas para análise crítica periódica. 
+a)	os direitos de acesso de usuários sejam revisados em intervalos regulares e depois de quaisquer mudanças, como promoção, remanejamento ou encerramento do contrato;  
+b)	os direitos de acesso de usuários sejam analisados criticamente e realocados quando movidos de um tipo de atividade para outra na mesma organização; 
+c)	autorizações para direitos de acesso privilegiado especial sejam revisadas em intervalos mais frequentes; 
+d)	as alocações de privilégios sejam verificadas em intervalo de tempo regular para garantir que privilégios não autorizados não foram obtidos; e 
+e)	as modificações para contas privilegiadas sejam registradas para análise crítica periódica. 
 
 QUESITO 2.2 
 Controle A.7.1.1 - Triagem antes do emprego 
 Convém que as verificações levem em consideração toda a legislação pertinente relativa à privacidade, proteção da informação de identificação pessoal e do emprego e, onde permitido, incluam os seguintes itens:  
-disponibilidade de referências de caráter satisfatórias, por exemplo uma profissional e uma pessoal; 
-uma verificação (da exatidão e completeza) das informações do curriculum vitae do candidato; 
-confirmação das qualificações acadêmicas e profissionais; 
-verificação independente da identidade (passaporte ou documento similar); e 
-verificações mais detalhadas, como verificações de crédito ou verificações de registros criminais.  
-
+a)	disponibilidade de referências de caráter satisfatórias, por exemplo uma profissional e uma pessoal; 
+b)	uma verificação (da exatidão e completeza) das informações do curriculum vitae do candidato; 
+c)	confirmação das qualificações acadêmicas e profissionais; 
+d)	verificação independente da identidade (passaporte ou documento similar); e 
+e)	verificações mais detalhadas, como verificações de crédito ou verificações de registros criminais.  
+ 
 Convém que, quando um indivíduo for contratado para desempenhar o papel de segurança da informação, a organização certifique-se de que o candidato: 
-tem a competência necessária para executar o papel de segurança da informação; e 
-possa ser confiável para desempenhar o papel, especialmente se o papel for crítico para a organização. 
-
+a)	tem a competência necessária para executar o papel de segurança da informação; e 
+b)	possa ser confiável para desempenhar o papel, especialmente se o papel for crítico para a organização. 
+ 
 Controle A.7.1.2 - Termos e condições de emprego 
 Convém que as obrigações contratuais para funcionários e partes externas reflitam as políticas para segurança da informação da organização, esclarecendo e declarando: 
-que todos os funcionários, fornecedores e partes externas que tenham acesso a informações sensíveis assinem um termo de confidencialidade ou de não divulgação, antes de lhes ser dado o acesso aos recursos de processamento da informação; 
-as responsabilidades legais e direitos dos funcionários e partes externas, e quaisquer outros usuários, por exemplo, com relação às leis de direitos autorais e legislação de proteção de dados; 
-as responsabilidades pela classificação da informação e pelo gerenciamento dos ativos da organização, associados com a informação, com os recursos de processamento da informação e com os serviços de informação conduzidos pelos funcionários, fornecedores ou partes externas; 
-as responsabilidades dos funcionários ou partes externas pelo tratamento da informação recebida de outras companhias ou partes interessadas; e 
-ações a serem tomadas no caso de o funcionário ou partes externas, desrespeitar os requisitos de segurança da informação da organização. 
-
+a)	que todos os funcionários, fornecedores e partes externas que tenham acesso a informações sensíveis assinem um termo de confidencialidade ou de não divulgação, antes de lhes ser dado o acesso aos recursos de processamento da informação; 
+b)	as responsabilidades legais e direitos dos funcionários e partes externas, e quaisquer outros usuários, por exemplo, com relação às leis de direitos autorais e legislação de proteção de dados; 
+c)	as responsabilidades pela classificação da informação e pelo gerenciamento dos ativos da organização, associados com a informação, com os recursos de processamento da informação e com os serviços de informação conduzidos pelos funcionários, fornecedores ou partes externas; 
+d)	as responsabilidades dos funcionários ou partes externas pelo tratamento da informação recebida de outras companhias ou partes interessadas; e 
+e)	ações a serem tomadas no caso de o funcionário ou partes externas, desrespeitar os requisitos de segurança da informação da organização. 
+ 
 Controle A.7.2.2 - Durante o emprego 
 Convém que o treinamento em conscientização seja realizado conforme requerido pelo programa de conscientização em segurança da informação da organização. Convém que o treinamento em conscientização use diferentes formas de apresentação, incluindo treinamento presencial, treinamento à distância, treinamento baseado em web, autodidata e outros.  Convém que o treinamento e a educação em segurança da informação também contemplem aspectos gerais, como:  a) declaração do comprometimento da direção com a segurança da informação em toda a organização;  
-a necessidade de tornar conhecido e estar em conformidade com as obrigações e regras de segurança da informação aplicáveis, conforme definido nas políticas, normas, leis, regulamentações, contratos e acordos;  
-responsabilidade pessoal por seus próprios atos e omissões, e compromissos gerais para manter segura ou para proteger a informação que pertença à organização e partes externas; 
-procedimentos de segurança da informação básicos (como notificação de incidente de segurança da informação) e controles básicos (como, segurança da senha, controles contra malware e política de mesa limpa e tela limpa); e 
-pontos de contato e recursos para informações adicionais e orientações sobre questões de segurança da informação, incluindo materiais de treinamento e educação em segurança da informação. 
-
+b)	a necessidade de tornar conhecido e estar em conformidade com as obrigações e regras de segurança da informação aplicáveis, conforme definido nas políticas, normas, leis, regulamentações, contratos e acordos;  
+c)	responsabilidade pessoal por seus próprios atos e omissões, e compromissos gerais para manter segura ou para proteger a informação que pertença à organização e partes externas; 
+d)	procedimentos de segurança da informação básicos (como notificação de incidente de segurança da informação) e controles básicos (como, segurança da senha, controles contra malware e política de mesa limpa e tela limpa); e 
+e)	pontos de contato e recursos para informações adicionais e orientações sobre questões de segurança da informação, incluindo materiais de treinamento e educação em segurança da informação. 
+ 
 QUESITO 2.3 
 Controle A.11.1.1 - Áreas seguras 
 Convém que as seguintes diretrizes sejam consideradas e implementadas, onde apropriado, para os perímetros de segurança física:  
-convém que os perímetros de segurança sejam claramente definidos e que a localização e a capacidade de resistência de cada perímetro dependam dos requisitos de segurança dos ativos existentes no interior do perímetro e dos resultados da avaliação de riscos; 
-convém que os perímetros de um edifício ou de um local que contenha as instalações de processamento da informação sejam fisicamente sólidos (ou seja, não é recomendável que o perímetro tenha brechas nem pontos onde poderia ocorrer facilmente uma invasão); convém que as paredes externas do local sejam de construção robusta e todas as portas externas sejam adequadamente protegidas contra acesso não autorizado por meio de mecanismos de controle (por exemplo, barras, alarmes, fechaduras); as portas e janelas sejam trancadas quando estiverem sem monitoração e uma proteção externa para as janelas seja considerada, principalmente para as que estiverem situadas no andar térreo; 
-convém que seja implantada uma área de recepção, ou um outro meio para controlar o acesso físico ao local ou ao edifício; convém que o acesso aos locais ou edifícios fique restrito somente ao pessoal autorizado; 
-convém que sejam construídas barreiras físicas, onde aplicável, para impedir o acesso físico não autorizado e a contaminação do meio ambiente; 
-convém que todas as portas corta-fogo do perímetro de segurança sejam providas de alarme, monitoradas e testadas juntamente com as paredes, para estabelecer o nível de resistência exigido, de acordo com normas regionais, nacionais e internacionais aceitáveis; convém que elas funcionem de acordo com os códigos locais de prevenção de incêndios e prevenção de falhas; 
-convém que sistemas adequados de detecção de intrusos, de acordo com normas regionais, nacionais e internacionais, sejam instalados e testados em intervalos regulares, e cubram todas as portas externas e janelas acessíveis; convém que as áreas não ocupadas sejam protegidas por alarmes o tempo todo; também é recomendável que seja dada proteção a outras áreas, por exemplo, salas de computadores ou salas de comunicações; e 
-convém que as instalações de processamento da informação gerenciadas pela organização fiquem fisicamente separadas daquelas que são gerenciadas por partes externas. 
-
+a)	convém que os perímetros de segurança sejam claramente definidos e que a localização e a capacidade de resistência de cada perímetro dependam dos requisitos de segurança dos ativos existentes no interior do perímetro e dos resultados da avaliação de riscos; 
+b)	convém que os perímetros de um edifício ou de um local que contenha as instalações de processamento da informação sejam fisicamente sólidos (ou seja, não é recomendável que o perímetro tenha brechas nem pontos onde poderia ocorrer facilmente uma invasão); convém que as paredes externas do local sejam de construção robusta e todas as portas externas sejam adequadamente protegidas contra acesso não autorizado por meio de mecanismos de controle (por exemplo, barras, alarmes, fechaduras); as portas e janelas sejam trancadas quando estiverem sem monitoração e uma proteção externa para as janelas seja considerada, principalmente para as que estiverem situadas no andar térreo; 
+c)	convém que seja implantada uma área de recepção, ou um outro meio para controlar o acesso físico ao local ou ao edifício; convém que o acesso aos locais ou edifícios fique restrito somente ao pessoal autorizado; 
+d)	convém que sejam construídas barreiras físicas, onde aplicável, para impedir o acesso físico não autorizado e a contaminação do meio ambiente; 
+e)	convém que todas as portas corta-fogo do perímetro de segurança sejam providas de alarme, monitoradas e testadas juntamente com as paredes, para estabelecer o nível de resistência exigido, de acordo com normas regionais, nacionais e internacionais aceitáveis; convém que elas funcionem de acordo com os códigos locais de prevenção de incêndios e prevenção de falhas; 
+f)	convém que sistemas adequados de detecção de intrusos, de acordo com normas regionais, nacionais e internacionais, sejam instalados e testados em intervalos regulares, e cubram todas as portas externas e janelas acessíveis; convém que as áreas não ocupadas sejam protegidas por alarmes o tempo todo; também é recomendável que seja dada proteção a outras áreas, por exemplo, salas de computadores ou salas de comunicações; e 
+g)	convém que as instalações de processamento da informação gerenciadas pela organização fiquem fisicamente separadas daquelas que são gerenciadas por partes externas. 
+ 
 Controle A.11.1.2 - Controles de entrada física 
 Convém que sejam levadas em consideração as seguintes diretrizes: 
-convém que a data e a hora da entrada e saída de visitantes sejam registradas, e todos os visitantes sejam supervisionados, a não ser que o seu acesso tenha sido previamente aprovado; convém que as permissões de acesso só sejam concedidas para finalidades específicas e autorizadas, e sejam emitidas com instruções sobre os requisitos de segurança da área e os procedimentos de emergência. Convém que a identidade dos visitantes seja autenticada por meios apropriados; 
-convém que o acesso às áreas em que são processadas ou armazenadas informações sensíveis seja restrito apenas ao pessoal autorizado pela implementação de controles de acesso apropriados, por exemplo, mecanismos de autenticação de dois fatores, como, cartões de controle de acesso e PIN (personal identification number); 
-convém que uma trilha de auditoria eletrônica ou um livro de registro físico de todos os acessos seja mantida e monitorada de forma segura; 
-convém que seja exigido que todos os funcionários, fornecedores e partes externas, e todos os visitantes, tenham alguma forma visível de identificação e que eles avisem imediatamente ao pessoal de segurança, caso encontrem visitantes não acompanhados ou qualquer pessoa que não esteja usando uma identificação visível; 
-às partes externas que realizam serviços de suporte, convém que seja concedido acesso restrito às áreas seguras ou às instalações de processamento da informação sensíveis, somente quando necessário; convém que este acesso seja autorizado e monitorado; e 
-convém que os direitos de acesso a áreas seguras sejam revistos e atualizados em intervalos regulares, e revogados quando necessário. 
+a)	convém que a data e a hora da entrada e saída de visitantes sejam registradas, e todos os visitantes sejam supervisionados, a não ser que o seu acesso tenha sido previamente aprovado; convém que as permissões de acesso só sejam concedidas para finalidades específicas e autorizadas, e sejam emitidas com instruções sobre os requisitos de segurança da área e os procedimentos de emergência. Convém que a identidade dos visitantes seja autenticada por meios apropriados; 
+b)	convém que o acesso às áreas em que são processadas ou armazenadas informações sensíveis seja restrito apenas ao pessoal autorizado pela implementação de controles de acesso apropriados, por exemplo, mecanismos de autenticação de dois fatores, como, cartões de controle de acesso e PIN (personal identification number); 
+c)	convém que uma trilha de auditoria eletrônica ou um livro de registro físico de todos os acessos seja mantida e monitorada de forma segura; 
+d)	convém que seja exigido que todos os funcionários, fornecedores e partes externas, e todos os visitantes, tenham alguma forma visível de identificação e que eles avisem imediatamente ao pessoal de segurança, caso encontrem visitantes não acompanhados ou qualquer pessoa que não esteja usando uma identificação visível; 
+e)	às partes externas que realizam serviços de suporte, convém que seja concedido acesso restrito às áreas seguras ou às instalações de processamento da informação sensíveis, somente quando necessário; convém que este acesso seja autorizado e monitorado; e 
+f)	convém que os direitos de acesso a áreas seguras sejam revistos e atualizados em intervalos regulares, e revogados quando necessário. 
 
 Controle A.11.1.4 - Proteção contra ameaças externas e ambientais convém que sejam levadas em consideração as seguintes diretrizes:
 
-o pessoal só tenha conhecimento da existência de áreas seguras ou das atividades nelas realizadas, se for necessário; 
-seja evitado o trabalho não supervisionado em áreas seguras, tanto por motivos de segurança como para prevenir as atividades mal-intencionadas; 
-as áreas seguras, não ocupadas, sejam fisicamente trancadas e periodicamente verificadas; e 
-não seja permitido o uso de máquinas fotográficas, gravadores de vídeo ou áudio ou de outros equipamentos de gravação, como câmeras em dispositivos móveis, salvo se for autorizado. 
-
+a)	o pessoal só tenha conhecimento da existência de áreas seguras ou das atividades nelas realizadas, se for necessário; 
+b)	seja evitado o trabalho não supervisionado em áreas seguras, tanto por motivos de segurança como para prevenir as atividades mal-intencionadas; 
+c)	as áreas seguras, não ocupadas, sejam fisicamente trancadas e periodicamente verificadas; e 
+d)	não seja permitido o uso de máquinas fotográficas, gravadores de vídeo ou áudio ou de outros equipamentos de gravação, como câmeras em dispositivos móveis, salvo se for autorizado. 
+ 
 Controle A.11.2.1 - Colocação e proteção de equipamentos 
 Convém que sejam levadas em consideração as seguintes diretrizes para proteger os equipamentos: 
-convém que os equipamentos sejam colocados no local, a fim de minimizar o acesso desnecessário às áreas de trabalho; 
-convém que as instalações de processamento da informação que manuseiam dados sensíveis sejam posicionadas cuidadosamente para reduzir o risco de que as informações sejam vistas por pessoal não autorizado durante a sua utilização; c) convém que as instalações de armazenamento sejam protegidas de forma segura para evitar acesso não autorizado; 
-convém que os itens que exigem proteção especial sejam protegidos para reduzir o nível geral de proteção necessário; 
-convém que sejam adotados controles para minimizar o risco de ameaças físicas potenciais e ambientais, como furto, incêndio, explosivos, fumaça, água (ou falha do suprimento de água), poeira, vibração, efeitos químicos, interferência com o suprimento de energia elétrica, interferência com as comunicações, radiação eletromagnética e vandalismo; 
-convém que sejam estabelecidas diretrizes quanto a comer, beber e fumar nas proximidades das instalações de processamento da informação; 
-convém que as condições ambientais, como temperatura e umidade, sejam monitoradas para a detecção de condições que possam afetar negativamente as instalações de processamento da informação; 
-convém que todos os edifícios sejam dotados de proteção contra raios e todas as linhas de entrada de força e de comunicações tenham filtros de proteção contra raios; 
-para equipamentos em ambientes industriais, é recomendado considerar o uso de métodos especiais de proteção, como membranas para teclados; e 
-convém que os equipamentos que processam informações sensíveis sejam protegidos, a fim de minimizar o risco de vazamento de informações em decorrência de emanações eletromagnéticas. 
+a)	convém que os equipamentos sejam colocados no local, a fim de minimizar o acesso desnecessário às áreas de trabalho; 
+b)	convém que as instalações de processamento da informação que manuseiam dados sensíveis sejam posicionadas cuidadosamente para reduzir o risco de que as informações sejam vistas por pessoal não autorizado durante a sua utilização; c) convém que as instalações de armazenamento sejam protegidas de forma segura para evitar acesso não autorizado; 
+d)	convém que os itens que exigem proteção especial sejam protegidos para reduzir o nível geral de proteção necessário; 
+e)	convém que sejam adotados controles para minimizar o risco de ameaças físicas potenciais e ambientais, como furto, incêndio, explosivos, fumaça, água (ou falha do suprimento de água), poeira, vibração, efeitos químicos, interferência com o suprimento de energia elétrica, interferência com as comunicações, radiação eletromagnética e vandalismo; 
+f)	convém que sejam estabelecidas diretrizes quanto a comer, beber e fumar nas proximidades das instalações de processamento da informação; 
+g)	convém que as condições ambientais, como temperatura e umidade, sejam monitoradas para a detecção de condições que possam afetar negativamente as instalações de processamento da informação; 
+h)	convém que todos os edifícios sejam dotados de proteção contra raios e todas as linhas de entrada de força e de comunicações tenham filtros de proteção contra raios; 
+i)	para equipamentos em ambientes industriais, é recomendado considerar o uso de métodos especiais de proteção, como membranas para teclados; e 
+j)	convém que os equipamentos que processam informações sensíveis sejam protegidos, a fim de minimizar o risco de vazamento de informações em decorrência de emanações eletromagnéticas. 
 
 QUESITOS AVALIADOS 
-
+ 
 QUESITO 2.1 Integração da gestão de identidades ao sistema de gestão de segurança da informação (SGSI) da organização 
 Conceito 0 – Não abordou o aspecto ou o fez de forma totalmente equivocada. 
 Conceito 1 – Abordou o aspecto apenas de forma superficial, sem desenvolvê-lo. 
 Conceito 2 – Abordou o aspecto de forma parcialmente correta, citando informações apenas sobre um controle a ser adotado. 
 Conceito 3 – Abordou corretamente o aspecto, citando informações sobre mais de um controle a ser adotado. 
-
+ 
 QUESITO 2.2 Medidas de segurança a serem adotadas durante o recrutamento e a contratação de novos colaboradores da organização 
 Conceito 0 – Não abordou o aspecto ou o fez de forma totalmente equivocada. 
 Conceito 1 – Abordou o aspecto apenas de forma superficial, sem desenvolvê-lo. 
 Conceito 2 – Abordou o aspecto de forma parcialmente correta, citando informações adequadas apenas sobre um controle a ser adotado. 
 Conceito 3 – Abordou corretamente o aspecto, citando informações sobre mais de um controle a ser adotado. 
-
+ 
 QUESITO 2.3 Medidas de segurança física dos espaços onde os dados são armazenados e processados na organização Conceito 0 – Não abordou o aspecto ou o fez de forma totalmente equivocada. 
 Conceito 1 – Abordou o aspecto apenas de forma superficial, sem desenvolvê-lo. 
 Conceito 2 – Abordou o aspecto de forma parcialmente correta, citando informações adequadas apenas sobre um controle a ser adotado. 
@@ -1341,7 +1473,7 @@ Notas inicialmente recebidas após a avaliação da banca examinadora exemplo 5 
 
 Quesitos Avaliados	Faixa de valor 	Nota
 1 Apresentação (legibilidade, respeito às margens e indicação de parágrafos) e estrutura textual (organização das ideias em texto estruturado) 	0,00 a 3,50 	2,63
-2 Desenvolvimento do tema		
+2 Desenvolvimento do tema	 	 
 2.1 Integração da gestão de identidades ao sistema de gestão de segurança da informação (SGSI) da organização 	0,00 a 26,50 	17,67
 2.2 Medidas de segurança a serem adotadas durante o recrutamento e a contratação de novos colaboradores 	0,00 a 22,00 	18,33
 2.3 Medidas de segurança física dos espaços onde os dados são armazenados e processados na organização 	0,00 a 18,00 	12,00
@@ -1362,9 +1494,9 @@ Ademais, na linha 7, na linha 16, na linha 21, na linha 33, na linha 37 e na lin
 Por fim, na “Estrutura textual: organização das ideias em texto estruturado”, percebe-se que divido o texto em 7 parágrafos. 
 Ademais, os parágrafos são organizados e alinhados por conectivos, inclusive anafóricos, que ligam as ideias da estrutura do texto, citando-se, como exemplos: “isto é” (l.4); “que” (l.9); “Para” (l.21); “Desde o primeiro momento” (l.23); “até que” (l.32).
 Além disso, na sequência dos parágrafos, respondo aos questionamentos exigidos pela banca, de modo estruturado e organizado, na ordem de respostas: 
-nos 3 primeiros parágrafos, respondo ao questionamento do quesito 2.1; 
-4º e 5º parágrafos, respondo ao questionamento do quesito 2.2;
-5º, 6º e 7º parágrafos, respondo ao questionamento do quesito 2.3.
+1)  nos 3 primeiros parágrafos, respondo ao questionamento do quesito 2.1; 
+2) 4º e 5º parágrafos, respondo ao questionamento do quesito 2.2;
+3) 5º, 6º e 7º parágrafos, respondo ao questionamento do quesito 2.3.
 Logo, organizo e estruturo, em sequência, tudo aquilo que a banca pediu, dentro dos parágrafos, na ordem das respostas.
 Conforme exposto, apresentei completa consonância com os aspectos do quesito 1, pelo qual se solicita majoração da nota: de 2,63 para 3,5.
 
@@ -1385,8 +1517,8 @@ A banca expõe, ainda: “convém que o procedimento de entrada (log-on) revele 
 No mesmo viés, com o fito de assegurar um bom procedimento para entrada (log-on) no sistema operacional, cito, nas linhas 8 a 11, as seguintes medidas de controle: 
 1)“utilização de senhas fortes” (l.8) 
 2) “ações críticas e que envolvam compartilhamento de dados” (l.9-10);
-“mecanismo de confirmação ou dupla checagem” (l.10-11);
-“utilização de autenticação de 2 fatores” (l.11).
+3) “mecanismo de confirmação ou dupla checagem” (l.10-11);
+4) “utilização de autenticação de 2 fatores” (l.11).
 Com isso, observa-se que cumpro o “controle A.9.4.2 - Gerenciamento de acesso privilegiado”, a ser adotado pela organização. 
 Outrossim, a banca também cita, no gabarito, o “Controle A.9.2.5 - Revisão de direitos de acesso do usuário”, indicando, como medidas:
 “c) autorizações para direitos de acesso privilegiado especial sejam revisadas em intervalos mais frequentes”; 
@@ -1423,15 +1555,15 @@ A princípio, fui enquadrado na nota do conceito 2. Contudo, conforme será demo
 Logo, a nota deve ser majorada: de 12 para 18.
 Ressalto que, para a banca, enquadra-se no conceito 3 o candidato que “abordou corretamente o aspecto, citando informações adequadas sobre mais de um controle a ser adotado.”
 Nesse sentido, para a banca, no “Controle A.11.1.2 - Controles de entrada física”, invoca-se, como medida: “convém que a identidade dos visitantes seja autenticada por meios apropriados”. Para este controle, cito como medidas:
-“práticas de autenticação biométrica” (l.33-34);
-“diferentes meios de autenticação” (l.40).
+1) “práticas de autenticação biométrica” (l.33-34);
+2) “diferentes meios de autenticação” (l.40).
 Assim, pelo que se verifica, cumpro o que está presente no “Controle A.11.1.2 - Controles de entrada física”.
 Outrossim, a banca também cita o “Controle A.11.1.4 - Proteção contra ameaças externas e ambientais”.
 Nesse sentido, a banca cita que “as áreas seguras, não ocupadas, sejam fisicamente trancadas e periodicamente verificadas”. Para isso, indico, como medidas deste controle:
-“controles de acesso aos equipamentos físicos” (l.34-35)
-“ambiente com videomonitoramento” (l.35-36);
-“acesso de duas chaves” (l.38);
-“duas pessoas autorizem o acesso à sala” (l.39-40).
+1) “controles de acesso aos equipamentos físicos” (l.34-35)
+2) “ambiente com videomonitoramento” (l.35-36);
+3) “acesso de duas chaves” (l.38);
+4) “duas pessoas autorizem o acesso à sala” (l.39-40).
 Portanto, como visto, cito os 2 controles abordados pela banca no padrão de resposta, cumprindo os requisitos para ser enquadrado no conceito 3.
 Solicito, então, a majoração da nota do quesito 2.3, passando do conceito 2 para o conceito 3: de 12 para 18.
 
@@ -1451,12 +1583,12 @@ As organizações em geral ampliaram significativamente suas bases de dados não
 Considerando que o texto acima tem caráter unicamente motivador, redija um texto dissertativo a respeito de mineração de dados. Ao elaborar seu texto, atenda ao que se pede a seguir.
 1 Defina mineração de dados e descreva seu objetivo. [valor: 4,50 pontos]
 2 Descreva classificação e associação, no âmbito das técnicas e tarefas de mineração de dados. [valor: 4,50 pontos]
-Defina aprendizado de máquina e descreva seus três principais tipos/categorias. [valor: 5,25 pontos]
+4	Defina aprendizado de máquina e descreva seus três principais tipos/categorias. [valor: 5,25 pontos]
 
 
 Quesitos Avaliados 	Faixa de valor 
 1 Apresentação (legibilidade, respeito às margens e indicação de parágrafos) e estrutura textual (organização das ideias em texto estruturado) 	0,00 a 0,75 
-2 Desenvolvimento do tema	
+2 Desenvolvimento do tema	 
 2.1 Definição de mineração de dados e seu objetivo 	0,00 a 4,50 
 2.2 Descrição de classificação e associação 	0,00 a 4,50 
 2.3 Definição de aprendizado de máquina e três principais tipos/categorias 	0,00 a 5,25 
@@ -1466,12 +1598,38 @@ ________________________________________
 
 Texto do candidato 6 =
 
-Mineração de dados pode ser definido como um conjunto de técnicas e/ou tecnologias usadas em massas de dados para extrair informações relevantes insights para a tomada de decisão. Por exemplo, ao considerar dados históricos de vendas de uma empresa e sobre seus clientes e hábitos de consumo, é possível utilizar técnicas de mineração de dados para identificar grupos de clientes com características de consumo em comum de maneira que esses perfis não poderiam ser identificados de forma manual.
-Dado um conjunto ou observações de dados rotulados em uma classe, algoritmos de classificação podem ser usados para identificar a qual classe pertence uma dessas observações rotuladas. 
-Através de regras de associação é possível relacionar característica de uma observação de dado com outra observação. Por exemplo, em um caso clássico notou-se que uma mesma cliente comprava fraldas e cerveja em uma única compra, através de regras de associação obteve se esse insight. 
-Aprendizagem de máquina pode ser entendido como o processo, pelo qual através de um conjunto de técnicas, de um modelo matemático conseguir detectar padrões. Por exemplo, a partir de dados históricos sobre vendas de imóveis uma simples regressão linear ou um algoritmo como svm poderá predizer o valor de uma casa a partir de suas características.
-Existem 3 tipos de am: aprendizado supervisionado - onde é feito uma rotulagem dos dados e existe uma supervisão; não supervisionado - não existe a rotulagem de dados dos possíveis padrões existentes, exemplo de algoritmo dessa categoria é a clusterização; por reforço - onde existe a penalização por cada erro do modelo e a recompensa por cada acerto. 
 
+Linha	Texto da linha
+ 1	Mineração de dados pode ser definido como um conjunto de 
+ 2	técnicas e/ou tecnologias usadas em massas de dados para extrair 
+ 3	informações relevantes insights para a tomada de decisão. Por 
+ 4	exemplo, ao considerar dados históricos de vendas de uma empresa e
+ 5	sobre seus clientes e hábitos de consumo, é possível utilizar técnicas 
+ 6	de mineração de dados para identificar grupos de clientes com caracte-
+ 7	rísticas de consumo em comum de maneira que esses perfis não 
+ 8	poderiam ser identificados de forma manual.
+ 9	Dado um conjunto ou observações de dados rotulados em uma 
+10	classe, algoritmos de classificação podem ser usados para identificar 
+11	a qual classe pertence uma dessas observações rotuladas. 
+12	Através de regras de associação é possível relacionar caracte-
+13	rística de uma observação de dado com outra observação. Por exemplo, em 
+14	um caso clássico notou-se que uma mesma cliente comprava fral-
+15	das e cerveja em uma única compra, através de regras de associação obte
+16	ve-se esse insight. 
+17	Aprendizagem de máquina pode ser entendido como o processo, pelo 
+18	qual através de um conjunto de técnicas, de um modelo matemático
+19	conseguir detectar padrões. Por exemplo, a partir de dados his-
+20	tóricos sobre vendas de imóveis uma simples regressão linear 
+21	ou um algoritmo como SVM poderá predizer o valor de uma casa 
+22	a partir de suas características.
+23	Existem 3 tipos de AM: aprendizado supervisionado - onde é 
+24	feito uma rotulagem dos dados e existe uma supervisão; não
+25	supervisionado - não existe a rotulagem de dados dos possíveis padrõ-
+26	es existentes, exemplo de algoritmo dessa categoria é a clusterização; 
+27	por reforço - onde existe a penalização por cada erro do modelo e 
+28	a recompensa por cada acerto.
+29	
+30	
 
 
 ________________________________________
@@ -1479,28 +1637,28 @@ ________________________________________
 Gabarito Oficial exemplo 6 = 
 
 Texto desejado - PADRÃO DE RESPOSTA DEFINITIVO
-Definição de mineração de dados e seu objetivo 
+1. Definição de mineração de dados e seu objetivo 
 A mineração de dados é um processo de descoberta e análise de padrões significativos e tendências em grandes conjuntos de informações, por meio de análise matemática. Seu objetivo é encontrar padrões, correlações e mesmo anomalias, de modo a prever resultados futuros para resolver problemas, minimizar riscos, analisar o impacto de decisões e aumentar a produtividade, possibilitando a construção de modelos e algoritmos que possam prever resultados específicos com precisão crescente. 
-
-Descrição de classificação e associação, considerando as técnicas e tarefas de mineração de dados 
+ 
+2. Descrição de classificação e associação, considerando as técnicas e tarefas de mineração de dados 
 A classificação é uma técnica complexa de mineração de dados que treina o algoritmo de machine learning para classificar dados em categorias distintas; ela usa métodos estatísticos, como “árvore de decisão”, One-Class SVM e “vizinho mais próximo” ou (KNN) para identificar a categoria. Já a associação é uma tarefa que visa encontrar relacionamentos entre dois conjuntos de dados diferentes e aparentemente não relacionados; ela se aplica aos casos em que um grupo de valores determina outro grupo, ou está associado a outro grupo ou faixa de valores, como o algoritmo Apriori. 
-
-Definição de aprendizado de máquina e descrição de seus três principais tipos/categorias. 
+ 
+3. Definição de aprendizado de máquina e descrição de seus três principais tipos/categorias. 
 Aprendizado de máquina é um ramo da inteligência artificial que se concentra no desenvolvimento de algoritmos e modelos capazes de aprender padrões a partir de dados de treinamento sem programação explícita. Seus três principais tipos/categorias são:  
-aprendizagem supervisionada: o algoritmo é treinado com um conjunto de dados rotulados, ou seja, dados que já possuem uma resposta certa associada a eles;  
-aprendizagem não supervisionada: envolve o uso de dados não rotulados. O algoritmo busca identificar padrões e estruturas nos dados por conta própria, sem ter exemplos prévios de saídas desejadas, agrupando dados por similaridade e descobrindo grupos automaticamente; e 
-aprendizagem por reforço: o algoritmo interage repetidamente com um ambiente dinâmico a fim de se atingir um objetivo específico. Ele treina o software para tomar decisões em busca dos melhores resultados. Assim, as ações de software que atingem sua meta são reforçadas, enquanto as ações que prejudicam a meta são ignoradas. 
+1	aprendizagem supervisionada: o algoritmo é treinado com um conjunto de dados rotulados, ou seja, dados que já possuem uma resposta certa associada a eles;  
+2	aprendizagem não supervisionada: envolve o uso de dados não rotulados. O algoritmo busca identificar padrões e estruturas nos dados por conta própria, sem ter exemplos prévios de saídas desejadas, agrupando dados por similaridade e descobrindo grupos automaticamente; e 
+3	aprendizagem por reforço: o algoritmo interage repetidamente com um ambiente dinâmico a fim de se atingir um objetivo específico. Ele treina o software para tomar decisões em busca dos melhores resultados. Assim, as ações de software que atingem sua meta são reforçadas, enquanto as ações que prejudicam a meta são ignoradas. 
 
 
 QUESITOS AVALIADOS 
-
+ 
 QUESITO 2.1 – Definição de mineração de dados e seu objetivo 
 Conceito 0 – Não respondeu ou respondeu de maneira totalmente equivocada.  
 Conceito 1 – Definiu mineração de dados de maneira incompleta, e não apresentou seu objetivo. 
 Conceito 2 – Definiu corretamente mineração de dados, mas não apresentou seu objetivo. 
 Conceito 3 – Definiu mineração de dados e apresentou seu objetivo, mas o fez de maneira parcialmente correta.  
 Conceito 4 – Definiu corretamente mineração de dados e apresentou corretamente seu objetivo. 
-
+ 
 QUESITO 2.2 – Descrição de classificação e associação 
 Conceito 0 – Não respondeu ou respondeu de maneira totalmente equivocada.  
 Conceito 1 – Descreveu, de maneira incompleta, apenas uma das técnicas/tarefas solicitadas.  
@@ -1521,7 +1679,7 @@ Notas inicialmente recebidas após a avaliação da banca examinadora exemplo 6 
 
 Quesitos Avaliados	Faixa de valor 	Nota
 1 Apresentação (legibilidade, respeito às margens e indicação de parágrafos) e estrutura textual (organização das ideias em texto estruturado) 	0,00 a 0,75 	0,38
-2 Desenvolvimento do tema		
+2 Desenvolvimento do tema	 	 
 2.1 Definição de mineração de dados e seu objetivo 	0,00 a 4,50 	2,25
 2.2 Descrição de classificação e associação 	0,00 a 4,50 	2,25
 2.3 Definição de aprendizado de máquina e três principais tipos/categorias 	0,00 a 5,25 	3,15
@@ -1543,9 +1701,9 @@ No item “Apresentação: indicação de parágrafos”, observa-se, que, na li
 Ademais, na linha 1, na linha 9, na linha 12, na linha 17 e na linha 23 é de visível e incontestável percepção o recuo à direita – demarcando a paragrafação. Isso indica pleno conhecimento quanto à indicação de parágrafos, com o espaço necessário que os indica e identifica.
 Por fim, na “Estrutura textual: organização das ideias em texto estruturado”, percebe-se que divido o texto em 5 parágrafos. Ademais, os parágrafos são organizados e alinhados por conectivos, inclusive anafóricos, que ligam as ideias da estrutura do texto, citando-se, como exemplos: Por exemplo (l.3-4); para (l.6); pelo qual (l.17-18); através (l.18).
 Além disso, na sequência dos parágrafos, respondo os questionamentos exigidos pela banca, de modo estruturado e organizado, na ordem de respostas: 
-no 1º parágrafo, respondo ao questionamento do quesito 2.1; 
-no 2º e 3º parágrafos, respondo ao questionamento do quesito 2.2; 
-no 4º e 5º parágrafos, respondo ao questionamento do quesito 2.3; 
+1)  no 1º parágrafo, respondo ao questionamento do quesito 2.1; 
+2) no 2º e 3º parágrafos, respondo ao questionamento do quesito 2.2; 
+3) no 4º e 5º parágrafos, respondo ao questionamento do quesito 2.3; 
 Logo, organizo e estruturo, em sequência, tudo aquilo que a banca pediu, dentro dos parágrafos, na ordem das respostas.
 Conforme exposto, apresentei completa consonância com os aspectos do quesito 1, pelo qual se solicita majoração da nota: de 0,38 de 0,75.
 
@@ -1604,26 +1762,25 @@ ________________________________________
 
 """
 
-# Interface de chat para cada modelo
+# Interface de chat para cada modelo (abas individuais)
 def chat_interface(model_key, model_name, analysis_func):
-    # Initialize message history with system message if not exists
+    # Inicializa o histórico de mensagens se não existir
     if f"{model_key}_messages" not in st.session_state or not st.session_state[f"{model_key}_messages"]:
         st.session_state[f"{model_key}_messages"] = [{"role": "system", "content": "Você é um assistente inteligente"}]
     if f"{model_key}_ratings" not in st.session_state:
         st.session_state[f"{model_key}_ratings"] = []
 
-    # Display conversation history
+    # Exibe o histórico de conversas
     with st.expander(f"Histórico de Conversa ({model_name})", expanded=True):
         for msg in st.session_state[f"{model_key}_messages"]:
-            if msg["role"] != "system":  # Don't display system message
+            if msg["role"] != "system":
                 display_message(msg["role"], msg["content"], model_name if msg["role"] == "assistant" else None)
 
-    # First interaction - show initial form fields
-    if len(st.session_state[f"{model_key}_messages"]) == 1:  # Only system message exists
+    # Primeira interação - exibe os campos iniciais sem seleção múltipla
+    if len(st.session_state[f"{model_key}_messages"]) == 1:
         st.subheader("Dados para elaboração do recurso")
         input_counter = st.session_state.get(f"{model_key}_input_counter", 0)
         
-        # Initial form fields
         perguntas_prova = st.text_area(
             "Perguntas da prova:",
             key=f"{model_key}_perguntas_prova_{input_counter}",
@@ -1651,7 +1808,6 @@ def chat_interface(model_key, model_name, analysis_func):
 
         if st.button("Enviar Mensagem", key=f"send_initial_{model_key}"):
             if all(field.strip() for field in [perguntas_prova, texto_analisado, gabarito_oficial, notas_iniciais]):
-                # Format initial prompt using template
                 prompt_formatado = PROMPT_TEMPLATE.format(
                     perguntas_prova=perguntas_prova.strip(),
                     texto_analisado=texto_analisado.strip(),
@@ -1659,12 +1815,10 @@ def chat_interface(model_key, model_name, analysis_func):
                     notas_iniciais=notas_iniciais.strip()
                 )
                 
-                # Add user message to history
                 st.session_state[f"{model_key}_messages"].append({"role": "user", "content": prompt_formatado})
                 st.session_state[f"{model_key}_rating_submitted"] = False
                 st.session_state[f"{model_key}_input_counter"] = input_counter + 1
 
-                # Process message with model
                 async def process_message():
                     with st.spinner(f"{model_name} está pensando..."):
                         response, input_tokens, output_tokens, elapsed_time = await analysis_func(
@@ -1680,7 +1834,6 @@ def chat_interface(model_key, model_name, analysis_func):
                     loop.close()
 
                 if response:
-                    # Add model response to history
                     st.session_state[f"{model_key}_messages"].append({"role": "assistant", "content": response})
                     st.session_state[f"{model_key}_last_input_tokens"] = input_tokens
                     st.session_state[f"{model_key}_last_output_tokens"] = output_tokens
@@ -1689,21 +1842,19 @@ def chat_interface(model_key, model_name, analysis_func):
             else:
                 st.warning("Por favor, preencha todos os campos antes de enviar.")
     else:
-        # Continuation - show context and single input field
+        # Continuação da conversa - exibe contexto e campo para nova mensagem
         st.markdown("### Contexto da Primeira Interação")
         messages = st.session_state[f"{model_key}_messages"]
         
-        # Display initial context
-        if len(messages) >= 3:  # Has system, user, and assistant messages
+        if len(messages) >= 3:
             initial_context = f"Você: {messages[1]['content']}\n\n{model_name}: {messages[2]['content']}"
-        elif len(messages) >= 2:  # Has system and user messages
+        elif len(messages) >= 2:
             initial_context = f"Você: {messages[1]['content']}"
         else:
             initial_context = ""
         
         st.text_area("Contexto Inicial:", value=initial_context, height=150, disabled=True)
         
-        # Continuation input field
         conversation_input = st.text_area(
             "Prosseguir com a conversa:",
             key=f"{model_key}_continuation",
@@ -1713,10 +1864,8 @@ def chat_interface(model_key, model_name, analysis_func):
 
         if st.button("Enviar Mensagem", key=f"send_continuation_{model_key}"):
             if conversation_input.strip():
-                # Add user message to history
                 st.session_state[f"{model_key}_messages"].append({"role": "user", "content": conversation_input})
                 
-                # Process message with model
                 async def process_message():
                     with st.spinner(f"{model_name} está pensando..."):
                         response, input_tokens, output_tokens, elapsed_time = await analysis_func(
@@ -1732,7 +1881,6 @@ def chat_interface(model_key, model_name, analysis_func):
                     loop.close()
 
                 if response:
-                    # Add model response to history
                     st.session_state[f"{model_key}_messages"].append({"role": "assistant", "content": response})
                     st.session_state[f"{model_key}_last_input_tokens"] = input_tokens
                     st.session_state[f"{model_key}_last_output_tokens"] = output_tokens
@@ -1817,22 +1965,30 @@ def chat_interface(model_key, model_name, analysis_func):
             else:
                 st.warning("Nenhuma resposta do modelo disponível para enviar.")
 
-# Interface de chat global para todos os modelos
+# Interface de chat global para avaliação simultânea (aba Avaliação simultânea)
 def global_chat_interface():
     if "global_messages" not in st.session_state:
         st.session_state.global_messages = [{"role": "system", "content": "Você é um assistente inteligente"}]
     
-    # Display conversation history (only user messages)
-    with st.expander("Histórico de Conversa (Todos os modelos)", expanded=True):
+    with st.expander("Histórico de Conversa (Avaliação simultânea)", expanded=True):
         for msg in st.session_state.global_messages:
-            if msg["role"] == "user":  # Only display user messages
+            if msg["role"] == "user":
                 display_message(msg["role"], msg["content"], None)
     
-    # First interaction - show initial form fields
-    if len(st.session_state.global_messages) == 1:  # Only system message exists
+    # Modelos disponíveis para avaliação simultânea
+    available_models = {
+        "GPT-4": ('gpt4', analyze_with_gpt4),
+        "Claude-3.7-Sonnet": ('claude', analyze_with_claude),
+        "Deepseek Chat": ('deepseek_chat', analyze_deepseek_chat),
+        "Deepseek Reasoner": ('deepseek_reasoner', analyze_deepseek_reasoner),
+        "Gemini 2.0 Flash": ('gemini', analyze_with_gemini),
+        "O3-Mini-high": ('o3-mini-high', analyze_with_o3_mini_high),
+        "Qwen-Plus": ('qwen-plus', analyze_with_qwen_plus)
+    }
+    
+    if len(st.session_state.global_messages) == 1:
         input_counter = st.session_state.get("global_input_counter", 0)
         
-        # Initial form fields
         global_perguntas = st.text_area(
             "Perguntas da prova:",
             key=f"global_perguntas_prova_{input_counter}",
@@ -1858,9 +2014,17 @@ def global_chat_interface():
             placeholder="Insira as notas inicialmente recebidas..."
         )
         
-        if st.button("Enviar Mensagem para todos os modelos", key="send_all_initial"):
-            if all(field.strip() for field in [global_perguntas, global_texto, global_gabarito, global_notas]):
-                # Format initial prompt using template
+        selected_models = st.multiselect(
+            "Selecione os modelos para enviar a mensagem:",
+            options=list(available_models.keys()),
+            default=list(available_models.keys()),
+            key="selected_models_initial_global"
+        )
+        
+        if st.button("Enviar Mensagem para os modelos selecionados", key="send_selected_initial_global"):
+            if not selected_models:
+                st.warning("Selecione pelo menos um modelo para enviar a mensagem.")
+            elif all(field.strip() for field in [global_perguntas, global_texto, global_gabarito, global_notas]):
                 prompt_formatado = PROMPT_TEMPLATE.format(
                     perguntas_prova=global_perguntas.strip(),
                     texto_analisado=global_texto.strip(),
@@ -1868,21 +2032,10 @@ def global_chat_interface():
                     notas_iniciais=global_notas.strip()
                 )
                 
-                # Add user message to global history
                 st.session_state.global_messages.append({"role": "user", "content": prompt_formatado})
                 
-                # Define models to process
-                models_to_send = [
-                    ('gpt4', analyze_with_gpt4),
-                    ('claude', analyze_with_claude),
-                    ('deepseek_chat', analyze_deepseek_chat),
-                    ('deepseek_reasoner', analyze_deepseek_reasoner),
-                    ('gemini', analyze_with_gemini),
-                    ('o3-mini-high', analyze_with_o3_mini_high),
-                    ('qwen-plus', analyze_with_qwen_plus)
-                ]
+                models_to_send = [available_models[m] for m in selected_models]
                 
-                # Initialize message history for each model if not exists
                 for model_key, _ in models_to_send:
                     messages_key = f"{model_key}_messages"
                     if messages_key not in st.session_state:
@@ -1891,7 +2044,6 @@ def global_chat_interface():
                 
                 st.session_state.global_input_counter = input_counter + 1
                 
-                # Process all models
                 async def process_all_models():
                     tasks = []
                     for model_key, analysis_func in models_to_send:
@@ -1902,12 +2054,11 @@ def global_chat_interface():
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
-                    with st.spinner("Processando todos os modelos..."):
+                    with st.spinner("Processando os modelos selecionados..."):
                         responses = loop.run_until_complete(process_all_models())
                 finally:
                     loop.close()
                 
-                # Handle responses from all models
                 for (model_key, _), result in zip(models_to_send, responses):
                     if isinstance(result, Exception):
                         st.error(f"Erro no modelo {model_key}: {str(result)}")
@@ -1924,19 +2075,16 @@ def global_chat_interface():
             else:
                 st.warning("Por favor, preencha todos os campos antes de enviar.")
     else:
-        # Continuation - show context and single input field
-        st.markdown("### Contexto da Primeira Interação (Global)")
+        st.markdown("### Contexto da Primeira Interação (Avaliação simultânea)")
         messages = st.session_state.global_messages
         
-        # Display initial context (only user messages)
-        if len(messages) >= 2:  # Has system and at least one user message
+        if len(messages) >= 2:
             initial_context = f"Você: {messages[1]['content']}"
         else:
             initial_context = ""
         
         st.text_area("Contexto Inicial:", value=initial_context, height=150, disabled=True)
         
-        # Continuation input field
         conversation_input = st.text_area(
             "Prosseguir com a conversa:",
             key="global_continuation",
@@ -1944,28 +2092,25 @@ def global_chat_interface():
             placeholder="Digite sua mensagem para continuar a conversa..."
         )
         
-        if st.button("Enviar Mensagem para todos os modelos", key="send_all_continuation"):
-            if conversation_input.strip():
-                # Add user message to global history
+        selected_models = st.multiselect(
+            "Selecione os modelos para enviar a mensagem:",
+            options=list(available_models.keys()),
+            default=list(available_models.keys()),
+            key="selected_models_cont_global"
+        )
+        
+        if st.button("Enviar Mensagem para os modelos selecionados", key="send_selected_cont_global"):
+            if not selected_models:
+                st.warning("Selecione pelo menos um modelo para enviar a mensagem.")
+            elif conversation_input.strip():
                 st.session_state.global_messages.append({"role": "user", "content": conversation_input})
                 
-                # Define models to process
-                models_to_send = [
-                    ('gpt4', analyze_with_gpt4),
-                    ('claude', analyze_with_claude),
-                    ('deepseek_chat', analyze_deepseek_chat),
-                    ('deepseek_reasoner', analyze_deepseek_reasoner),
-                    ('gemini', analyze_with_gemini),
-                    ('o3-mini-high', analyze_with_o3_mini_high),
-                    ('qwen-plus', analyze_with_qwen_plus)
-                ]
+                models_to_send = [available_models[m] for m in selected_models]
                 
-                # Add user message to each model's history
                 for model_key, _ in models_to_send:
                     if model_key + "_messages" in st.session_state:
                         st.session_state[model_key + "_messages"].append({"role": "user", "content": conversation_input})
                 
-                # Process all models
                 async def process_all_models():
                     tasks = []
                     for model_key, analysis_func in models_to_send:
@@ -1976,12 +2121,11 @@ def global_chat_interface():
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
-                    with st.spinner("Processando todos os modelos..."):
+                    with st.spinner("Processando os modelos selecionados..."):
                         responses = loop.run_until_complete(process_all_models())
                 finally:
                     loop.close()
                 
-                # Handle responses from all models
                 for (model_key, _), result in zip(models_to_send, responses):
                     if isinstance(result, Exception):
                         st.error(f"Erro no modelo {model_key}: {str(result)}")
@@ -1998,7 +2142,6 @@ def global_chat_interface():
             else:
                 st.warning("Por favor, digite uma mensagem antes de enviar.")
     
-    # Clear conversation button
     if st.button("Iniciar uma nova conversa", key="clear_global"):
         if 'global_messages' in st.session_state:
             del st.session_state.global_messages
@@ -2011,9 +2154,9 @@ def main_interface():
     if "resultados" not in st.session_state:
         st.session_state["resultados"] = []
     tabs = st.tabs([
-        "Todos os modelos",
+        "Avaliação simultânea",
         "GPT-4",
-        "Claude-3.5-Sonnet",
+        "Claude-3.7-Sonnet",
         "Deepseek Chat",
         "Deepseek Reasoner",
         "Gemini 2.0 Flash",
@@ -2028,7 +2171,7 @@ def main_interface():
     with tabs[1]:
         chat_interface('gpt4', 'GPT-4', analyze_with_gpt4)
     with tabs[2]:
-        chat_interface('claude', 'Claude-3.5-Sonnet', analyze_with_claude)
+        chat_interface('claude', 'Claude-3.7-Sonnet', analyze_with_claude)
     with tabs[3]:
         chat_interface('deepseek_chat', 'Deepseek Chat', analyze_deepseek_chat)
     with tabs[4]:
@@ -2106,7 +2249,7 @@ def main_interface():
         texto_recurso = st.session_state.get("texto_recurso", "")
         st.text_area("Texto do Recurso:", value=texto_recurso, height=300)
 
-# Inicializar os clientes, se ainda não estiverem no session_state, e chamar a interface principal
+# Inicializa os clientes se ainda não estiverem no session_state e chama a interface principal
 if "clients" not in st.session_state:
     st.session_state.clients = init_clients()
 main_interface()
